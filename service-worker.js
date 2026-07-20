@@ -1,5 +1,5 @@
-const CACHE_NAME = "taskcore-v2-20260720";
-const STATIC_ASSETS = ["./", "./index.html", "./styles.css", "./script.js", "./config.js", "./manifest.json", "./assets/favicon.svg"];
+const CACHE_NAME = "taskcore-v2-20260720-final";
+const STATIC_ASSETS = ["./", "./index.html", "./styles.css", "./script.js", "./config.js", "./manifest.json", "./assets/favicon.svg", "./assets/icons/icon-192.png", "./assets/icons/icon-512.png", "./assets/icons/icon-maskable-512.png", "./assets/icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()));

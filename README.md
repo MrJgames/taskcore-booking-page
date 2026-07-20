@@ -2,7 +2,7 @@
 
 A mobile-first, one-page website for TaskCore. It uses only HTML, CSS, and vanilla JavaScript, so it can be hosted free with GitHub Pages.
 
-Version 2 adds an app-style customer portal, a quote request saved only in the visitor's browser, temporary photo previews, and an installable offline experience. Quote details are not sent to TaskCore until a future submission service is configured.
+Version 2 provides an app-style customer portal, a text-ready appointment request, temporary photo previews, and an installable offline experience. The site remains fully static and requires no backend.
 
 ## 1. Open the site locally
 
@@ -22,14 +22,14 @@ Open `config.js` in Notepad. Paste the full Google Form or Google Calendar appoi
 const TASKCORE_BOOKING_URL = "PASTE THE FULL GOOGLE LINK HERE";
 ```
 
-Save the file. When this value is blank, the booking button politely asks the customer to call or text Jay. When it contains a link, the booking page opens in a new tab.
+Save the file. When this value is blank, the booking button smoothly moves the customer to the quote request form. When it contains a link, the booking page opens in a new tab.
 
 ## 3. Add the final website URL
 
 After GitHub Pages gives you the published address, open `config.js` and add it:
 
 ```javascript
-const TASKCORE_WEBSITE_URL = "PASTE THE FULL GITHUB PAGES ADDRESS HERE";
+const TASKCORE_WEBSITE_URL = "https://mrjgames.github.io/taskcore-booking-page/";
 ```
 
 Use the exact address shown by GitHub Pages, including `https://`.
@@ -43,7 +43,7 @@ py -m pip install "qrcode[pil]"
 py generate_qr.py
 ```
 
-The script reads the final address from `config.js` and creates `assets/taskcore-booking-qr.png`. It will stop with a clear message if the website URL is blank or invalid. Run it again whenever the published address changes.
+The script reads the final address from `config.js` and creates a high-resolution PNG plus a scalable SVG in `assets/qr/`. It will stop with a clear message if the website URL is blank or invalid. Run it again whenever the published address changes.
 
 ## 5. Create a GitHub repository
 
@@ -79,19 +79,19 @@ Nothing in this project is published automatically.
 
 ## 7. Test the Call button
 
-Open the site on a phone and tap **Call Jay**. Confirm the phone opens its calling screen with `(442) 822-5367`. Cancel before placing the call if this is only a test. Desktop computers may ask which calling app to use.
+Open the site on a phone and tap **Call Now**. Confirm the phone opens its calling screen with `(442) 822-5357`. Cancel before placing the call if this is only a test. Desktop computers may ask which calling app to use.
 
 ## 8. Test the Text button
 
-Open the site on a phone and tap **Text Jay**. Confirm a new message opens to `(442) 822-5367` with the prepared TaskCore message. Do not send it unless desired.
+Open the site on a phone and tap **Text Jay**. Confirm a new message opens to `(442) 822-5357` with the prepared TaskCore message. Do not send it unless desired.
 
 ## 9. Test the booking button
 
-First leave `TASKCORE_BOOKING_URL` blank and confirm **Book an Appointment** displays the call-or-text message. Then add the real Google link, reload the page, and confirm the button opens the correct booking page in a new tab.
+Leave `TASKCORE_BOOKING_URL` blank and confirm **Book Appointment** moves to the quote form. If a real booking link is added later, reload the page and confirm the button opens that booking page in a new tab.
 
 ## 10. Test the QR code before printing
 
-Open `assets/taskcore-booking-qr.png` on a different screen or print one sample. Scan it with at least one phone camera. Confirm the preview shows the exact GitHub Pages address and opens the live TaskCore page. Test again after any URL change and before ordering business cards.
+Open `assets/qr/taskcore-website-qr.png` on a different screen or print one sample. Scan it with at least one phone camera. Confirm the preview shows the exact GitHub Pages address and opens the live TaskCore page. Test again after any URL change and before ordering business cards.
 
 ## Privacy-friendly local click counts
 
@@ -99,7 +99,7 @@ The page stores counts for Book, Call, and Text button clicks only in that visit
 
 ## Quote requests and photos
 
-The Version 2 quote form saves the latest request only in the visitor's browser under `taskcore_quote_request`. The success message clearly says Jay has not received it yet. Selected photos are previewed temporarily using browser memory; they are never placed in `localStorage`, uploaded, or retained after the page closes.
+The quote form prepares a formatted request with **Text Request** and **Copy Request** actions. Text Request opens a message to `(442) 822-5357`; the customer must send it before TaskCore receives anything. Selected photos are previewed temporarily using browser memory and must be attached manually after the messaging app opens. They are never stored or uploaded by the website.
 
 ## Install the TaskCore app
 
@@ -110,4 +110,5 @@ The site includes `manifest.json` and `service-worker.js`. On supported browsers
 - Confirm both URLs in `config.js` are the intended real links.
 - Test on a phone and a computer.
 - Scan the QR code from the final published page.
-- Keep Jay's phone number as `(442) 822-5367` / `+14428225367` in all links.
+- Keep Jay's phone number as `(442) 822-5357` / `+14428225357` in all links.
+- Keep the contact email as `Taskcorepros@gmail.com`.

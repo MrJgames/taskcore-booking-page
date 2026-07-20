@@ -4,20 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#080b12">
-  <meta name="description" content="TaskCore provides professional home technology installation and troubleshooting throughout Coachella Valley, California.">
+  <meta name="description" content="TaskCore provides home technology installation and support throughout Coachella Valley, California. Call, text, or request an appointment.">
   <meta name="robots" content="index, follow">
   <meta name="application-name" content="TaskCore">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TaskCore">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="TaskCore | Home Technology & Installation">
-  <meta property="og:description" content="Professional home technology installation and troubleshooting in Coachella Valley, California.">
+  <meta property="og:title" content="TaskCore | Home Technology Installation & Support">
+  <meta property="og:description" content="Home technology installation and support throughout Coachella Valley, California.">
+  <meta property="og:url" content="https://mrjgames.github.io/taskcore-booking-page/">
+  <meta property="og:site_name" content="TaskCore">
   <meta property="og:locale" content="en_US">
-  <title>TaskCore | Home Technology &amp; Installation</title>
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="TaskCore | Home Technology Installation & Support">
+  <meta name="twitter:description" content="Home technology installation and support throughout Coachella Valley, California.">
+  <link rel="canonical" href="https://mrjgames.github.io/taskcore-booking-page/">
+  <title>TaskCore | Home Technology Installation &amp; Support</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="assets/favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
   <script src="config.js" defer></script>
   <script src="script.js" defer></script>
@@ -41,12 +47,12 @@
       <div class="shell hero-inner reveal">
         <p class="location-pill"><span aria-hidden="true"></span> Coachella Valley, California</p>
         <div class="hero-logo" aria-label="TaskCore"><span class="hero-logo-mark" aria-hidden="true">TC</span><h1>TASKCORE</h1></div>
-        <p class="hero-category">Home Technology <b>&amp;</b> Installation</p>
+        <p class="hero-category">Home Technology Installation <b>&amp;</b> Support</p>
         <p class="tagline">Solving Today&rsquo;s Tasks.<br><span>Connecting Tomorrow&rsquo;s Homes.</span></p>
         <div class="hero-actions" aria-label="Primary actions">
           <button class="button button-primary booking-trigger" id="book-button" type="button">Book Appointment <span aria-hidden="true">&#8599;</span></button>
-          <a class="button button-glass" id="call-button" href="tel:+14428225367">Call Now <span aria-hidden="true">&#8594;</span></a>
-          <a class="button button-glass" id="text-button" href="sms:+14428225367?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jay <span aria-hidden="true">&#8594;</span></a>
+          <a class="button button-glass" id="call-button" href="tel:+14428225357">Call Now <span aria-hidden="true">&#8594;</span></a>
+          <a class="button button-glass" id="text-button" href="sms:+14428225357?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jay <span aria-hidden="true">&#8594;</span></a>
         </div>
         <a class="scroll-cue" href="#why"><span aria-hidden="true"></span> Explore TaskCore</a>
       </div>
@@ -107,15 +113,20 @@
             <label for="photo-input"><span class="upload-plus" aria-hidden="true">+</span><span><strong>Add photos</strong><small>Optional &middot; Select one or more images</small></span></label>
             <div class="photo-previews" id="photo-previews" aria-live="polite"></div>
           </div>
-          <button class="button button-primary submit-button" type="submit">Save Quote Request <span aria-hidden="true">&#8594;</span></button>
+          <button class="button button-primary submit-button" type="submit">Prepare Request <span aria-hidden="true">&#8594;</span></button>
           <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+          <div class="request-actions" id="request-actions" hidden>
+            <p>Photos cannot be attached automatically. Please attach your selected photos after your messaging app opens.</p>
+            <div><a class="button button-primary" id="text-request" href="sms:+14428225357">Text Request <span aria-hidden="true">&#8594;</span></a><button class="button button-outline" id="copy-request" type="button">Copy Request</button></div>
+          </div>
+          <p class="quote-privacy">TaskCore does not receive your request until you send the text message. Photos remain on your device; nothing is uploaded automatically.</p>
         </form>
       </div>
     </section>
 
     <section class="section about-section" id="about">
       <div class="shell about-layout reveal">
-        <div class="portrait" aria-label="Placeholder silhouette for Jay"><div class="silhouette" aria-hidden="true"><span></span></div><p>JAY<br><small>Owner / Installer</small></p></div>
+        <div class="portrait" aria-label="TaskCore owner profile graphic"><div class="silhouette" aria-hidden="true"><span></span></div><p>JAY<br><small>Owner / Installer</small></p></div>
         <div><p class="eyebrow">Meet Jay</p><h2>A direct, dependable<br>approach to technology.</h2><p class="about-lead">Jay provides reliable, professional, technology-focused help with clear communication at every step.</p><ul class="quality-list"><li>Reliable</li><li>Professional</li><li>Technology focused</li><li>Clear communication</li></ul></div>
       </div>
     </section>
@@ -131,29 +142,21 @@
       </div>
     </section>
 
-    <section class="section reviews-section" id="reviews">
-      <div class="shell reveal">
-        <div class="section-heading"><div><p class="eyebrow">Reviews</p><h2>Customer feedback,<br>coming soon.</h2></div><p>Verified customer feedback will be displayed here when available.</p></div>
-        <div class="reviews-placeholder"><span class="stars" aria-hidden="true">&#9734; &#9734; &#9734; &#9734; &#9734;</span><strong>Future Google Reviews</strong><p>This is a clearly labeled placeholder. No customer testimonials have been added.</p></div>
-      </div>
-    </section>
-
     <section class="contact-section" id="contact">
       <div class="shell reveal">
         <p class="eyebrow">Contact TaskCore</p><h2>Ready to solve<br>your next task?</h2>
         <div class="contact-grid">
-          <a href="tel:+14428225367"><span>Call</span><strong>(442) 822-5367</strong><b aria-hidden="true">&#8599;</b></a>
-          <a href="sms:+14428225367?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20"><span>Text</span><strong>Message Jay</strong><b aria-hidden="true">&#8599;</b></a>
+          <a href="tel:+14428225357"><span>Call</span><strong>(442) 822-5357</strong><b aria-hidden="true">&#8599;</b></a>
+          <a href="sms:+14428225357?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20"><span>Text</span><strong>Message Jay</strong><b aria-hidden="true">&#8599;</b></a>
           <button class="booking-trigger" type="button"><span>Book</span><strong>Appointment</strong><b aria-hidden="true">&#8599;</b></button>
-          <div><span>Business Hours</span><strong>By appointment</strong><small>Call or text to schedule</small></div>
+          <a href="mailto:Taskcorepros@gmail.com"><span>Email</span><strong>Taskcorepros@gmail.com</strong><b aria-hidden="true">&#8599;</b></a>
         </div>
+        <p class="hours-note"><strong>Business hours:</strong> By appointment &middot; Call or text to schedule</p>
       </div>
     </section>
   </main>
 
-  <footer><div class="shell"><a class="wordmark" href="#top"><span class="logo-mark" aria-hidden="true">TC</span><span>TASKCORE</span></a><p>Home Technology &amp; Installation</p><p>&copy; <span id="year"></span> TaskCore</p></div></footer>
-
-  <dialog id="booking-dialog" aria-labelledby="dialog-title"><div class="dialog-mark" aria-hidden="true">TC</div><h2 id="dialog-title">Online booking is being connected.</h2><p>Please call or text Jay at (442) 822-5367.</p><div class="dialog-actions"><a class="button button-primary" href="tel:+14428225367">Call Jay</a><a class="button button-outline" href="sms:+14428225367?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jay</a></div><button class="dialog-close" type="button" aria-label="Close booking message">Close</button></dialog>
+  <footer><div class="shell"><a class="wordmark" href="#top"><span class="logo-mark" aria-hidden="true">TC</span><span>TASKCORE</span></a><p>Home Technology Installation &amp; Support</p><p>&copy; <span id="year"></span> TaskCore</p></div></footer>
 
   <div class="offline-toast" id="offline-toast" role="status" aria-live="polite">You&rsquo;re offline. The TaskCore portal is still available.</div>
 </body>
