@@ -2,79 +2,159 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07090d">
-  <meta name="description" content="TaskCore provides professional home technology installation and troubleshooting across Coachella Valley, California.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b12">
+  <meta name="description" content="TaskCore provides professional home technology installation and troubleshooting throughout Coachella Valley, California.">
   <meta name="robots" content="index, follow">
+  <meta name="application-name" content="TaskCore">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TaskCore">
   <meta property="og:type" content="website">
   <meta property="og:title" content="TaskCore | Home Technology & Installation">
   <meta property="og:description" content="Professional home technology installation and troubleshooting in Coachella Valley, California.">
   <meta property="og:locale" content="en_US">
-  <title>TaskCore | Home Technology & Installation</title>
+  <title>TaskCore | Home Technology &amp; Installation</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/favicon.svg">
   <link rel="stylesheet" href="styles.css">
   <script src="config.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
-  <header class="hero">
-    <nav class="nav wrap" aria-label="Main navigation">
-      <a class="brand" href="#top" aria-label="TaskCore home"><span class="brand-mark" aria-hidden="true">TC</span><span>TASKCORE</span></a>
-      <a class="nav-call" href="tel:+14428225367" aria-label="Call Jay at 442-822-5367">Call Jay</a>
+
+  <header class="site-header" id="top">
+    <nav class="nav shell" aria-label="Primary navigation">
+      <a class="wordmark" href="#top" aria-label="TaskCore home"><span class="logo-mark" aria-hidden="true">TC</span><span>TASKCORE</span></a>
+      <div class="nav-links">
+        <a href="#services">Services</a><a href="#quote">Quote</a><a href="#contact">Contact</a>
+      </div>
+      <button class="install-button" id="install-button" type="button" hidden>Install App</button>
     </nav>
-    <div class="hero-grid wrap" id="top">
-      <div class="hero-copy">
-        <p class="eyebrow"><span></span> Coachella Valley, California</p>
-        <h1>TASKCORE</h1>
-        <p class="category">Home Technology <span>&amp;</span> Installation</p>
-        <p class="tagline">Solving Today&rsquo;s Tasks.<br>Connecting Tomorrow&rsquo;s Homes.</p>
-        <div class="actions" aria-label="Contact and booking options">
-          <button class="button primary" id="book-button" type="button"><span aria-hidden="true">↗</span> Book an Appointment</button>
-          <a class="button secondary" id="call-button" href="tel:+14428225367"><span aria-hidden="true">☎</span> Call Jay</a>
-          <a class="button secondary" id="text-button" href="sms:+14428225367?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20"><span aria-hidden="true">✦</span> Text Jay</a>
-        </div>
-      </div>
-      <div class="tech-card" aria-hidden="true">
-        <div class="signal signal-one"></div><div class="signal signal-two"></div><div class="signal signal-three"></div>
-        <div class="home-icon"><span class="roof"></span><span class="door"></span><span class="node n1"></span><span class="node n2"></span><span class="node n3"></span></div>
-        <p>HOME<br><strong>CONNECTED</strong></p>
-      </div>
-    </div>
   </header>
 
   <main id="main">
-    <section class="section wrap" id="services">
-      <div class="section-heading"><div><p class="kicker">What we do</p><h2>Technology that works<br>the way it should.</h2></div><p>From a stronger connection to a cleaner installation, TaskCore helps make home technology simple, reliable, and ready to use.</p></div>
-      <div class="service-grid">
-        <article><span>01</span><h3>Connected Home</h3><ul><li>Smart-home installation</li><li>Smart locks and thermostats</li><li>Security-camera installation</li><li>Video-doorbell installation</li></ul></article>
-        <article><span>02</span><h3>Entertainment</h3><ul><li>TV mounting and setup</li><li>Streaming-device setup</li><li>Home audio and soundbar setup</li></ul></article>
-        <article><span>03</span><h3>Help &amp; Repair</h3><ul><li>Wi-Fi troubleshooting and optimization</li><li>Device troubleshooting</li><li>Light repairs or replacements</li></ul></article>
+    <section class="hero">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="shell hero-inner reveal">
+        <p class="location-pill"><span aria-hidden="true"></span> Coachella Valley, California</p>
+        <div class="hero-logo" aria-label="TaskCore"><span class="hero-logo-mark" aria-hidden="true">TC</span><h1>TASKCORE</h1></div>
+        <p class="hero-category">Home Technology <b>&amp;</b> Installation</p>
+        <p class="tagline">Solving Today&rsquo;s Tasks.<br><span>Connecting Tomorrow&rsquo;s Homes.</span></p>
+        <div class="hero-actions" aria-label="Primary actions">
+          <button class="button button-primary booking-trigger" id="book-button" type="button">Book Appointment <span aria-hidden="true">&#8599;</span></button>
+          <a class="button button-glass" id="call-button" href="tel:+14428225367">Call Now <span aria-hidden="true">&#8594;</span></a>
+          <a class="button button-glass" id="text-button" href="sms:+14428225367?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jay <span aria-hidden="true">&#8594;</span></a>
+        </div>
+        <a class="scroll-cue" href="#why"><span aria-hidden="true"></span> Explore TaskCore</a>
       </div>
     </section>
 
-    <section class="dark-section">
-      <div class="wrap prep-grid">
-        <div><p class="kicker light">Before we arrive</p><h2>A little preparation<br>goes a long way.</h2><p class="muted">Having these details ready helps Jay understand the task and arrive prepared.</p></div>
-        <ol class="prep-list"><li><span>01</span>Their name</li><li><span>02</span>Their service address</li><li><span>03</span>Their preferred appointment date</li><li><span>04</span>A description of the issue</li><li><span>05</span>Photos of the installation area when helpful</li><li><span>06</span>Device brand and model when known</li></ol>
+    <section class="section section-light" id="why">
+      <div class="shell reveal">
+        <div class="section-heading"><div><p class="eyebrow">Why TaskCore</p><h2>Service built around<br>your home.</h2></div><p>Thoughtful support, modern technology, and clear communication from the first message to the finished task.</p></div>
+        <div class="why-grid">
+          <article class="premium-card"><span class="card-number">01</span><div class="mini-icon">PRO</div><h3>Professional</h3><p>Respectful, detail-oriented service for your home technology.</p></article>
+          <article class="premium-card"><span class="card-number">02</span><div class="mini-icon">FAST</div><h3>Fast Response</h3><p>A direct line to Jay when you need help planning the next step.</p></article>
+          <article class="premium-card"><span class="card-number">03</span><div class="mini-icon">TECH</div><h3>Technology Specialists</h3><p>Focused help for connected devices, networks, and entertainment.</p></article>
+          <article class="premium-card blue-card"><span class="card-number">04</span><div class="mini-icon">CV</div><h3>Serving Coachella Valley</h3><p>Local service across communities throughout the valley.</p></article>
+        </div>
       </div>
     </section>
 
-    <section class="section wrap trust">
-      <div><p class="kicker">Why TaskCore</p><h2>Good work starts<br>with trust.</h2></div>
-      <div class="trust-list" aria-label="TaskCore qualities"><span>Reliable</span><span>Professional</span><span>Detail-oriented</span><span>Tech-savvy</span><span>Clear communication</span></div>
+    <section class="section section-dark" id="services">
+      <div class="shell reveal">
+        <div class="section-heading inverse"><div><p class="eyebrow">Services</p><h2>Connected. Mounted.<br>Working.</h2></div><p>Practical home technology help without the complexity.</p></div>
+        <div class="services-grid">
+          <article class="service-card"><span class="service-icon">HM</span><h3>Smart Home</h3><p>Connected-device setup made simple.</p></article>
+          <article class="service-card"><span class="service-icon wifi-icon">WI</span><h3>Wi-Fi Optimization</h3><p>Stronger, more reliable coverage.</p></article>
+          <article class="service-card"><span class="service-icon">TV</span><h3>TV Mounting</h3><p>Clean mounting and complete setup.</p></article>
+          <article class="service-card"><span class="service-icon">CAM</span><h3>Security Cameras</h3><p>Placement, installation, and connection.</p></article>
+          <article class="service-card"><span class="service-icon">DB</span><h3>Doorbells</h3><p>Smart video doorbell installation.</p></article>
+          <article class="service-card"><span class="service-icon">LK</span><h3>Smart Locks</h3><p>Entry setup and device pairing.</p></article>
+          <article class="service-card"><span class="service-icon">NET</span><h3>Networking</h3><p>Home network troubleshooting and setup.</p></article>
+          <article class="service-card"><span class="service-icon">PLAY</span><h3>Streaming Devices</h3><p>Apps, accounts, and device connections.</p></article>
+          <article class="service-card"><span class="service-icon">FIX</span><h3>Light Repairs &amp; Replacements</h3><p>Secondary support for smaller home tasks.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section quote-section" id="quote">
+      <div class="shell quote-layout reveal">
+        <div class="quote-copy">
+          <p class="eyebrow">Get a Quote</p><h2>Tell us what<br>you need.</h2>
+          <p>Share a few details and save your request on this device. Nothing is sent online yet.</p>
+          <div class="privacy-note"><span aria-hidden="true">&#10003;</span><p><strong>Private by design</strong><br>Your form details stay in this browser.</p></div>
+        </div>
+        <form class="quote-form" id="quote-form">
+          <div class="field-row">
+            <label><span>Name *</span><input name="name" type="text" autocomplete="name" required></label>
+            <label><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" inputmode="tel" required></label>
+          </div>
+          <div class="field-row">
+            <label><span>Email <small>Optional</small></span><input name="email" type="email" autocomplete="email"></label>
+            <label><span>Address *</span><input name="address" type="text" autocomplete="street-address" required></label>
+          </div>
+          <label><span>Describe the issue *</span><textarea name="issue" rows="5" required placeholder="What can TaskCore help with?"></textarea></label>
+          <div class="field-row">
+            <label><span>Preferred contact *</span><select name="contactMethod" required><option value="">Choose one</option><option>Call</option><option>Text</option><option>Email</option></select></label>
+            <label><span>Preferred date *</span><input name="appointmentDate" type="date" required></label>
+          </div>
+          <div class="upload-area">
+            <input id="photo-input" name="photos" type="file" accept="image/*" multiple>
+            <label for="photo-input"><span class="upload-plus" aria-hidden="true">+</span><span><strong>Add photos</strong><small>Optional &middot; Select one or more images</small></span></label>
+            <div class="photo-previews" id="photo-previews" aria-live="polite"></div>
+          </div>
+          <button class="button button-primary submit-button" type="submit">Save Quote Request <span aria-hidden="true">&#8594;</span></button>
+          <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <section class="section about-section" id="about">
+      <div class="shell about-layout reveal">
+        <div class="portrait" aria-label="Placeholder silhouette for Jay"><div class="silhouette" aria-hidden="true"><span></span></div><p>JAY<br><small>Owner / Installer</small></p></div>
+        <div><p class="eyebrow">Meet Jay</p><h2>A direct, dependable<br>approach to technology.</h2><p class="about-lead">Jay provides reliable, professional, technology-focused help with clear communication at every step.</p><ul class="quality-list"><li>Reliable</li><li>Professional</li><li>Technology focused</li><li>Clear communication</li></ul></div>
+      </div>
+    </section>
+
+    <section class="section area-section" id="area">
+      <div class="shell reveal">
+        <div class="section-heading"><div><p class="eyebrow">Service Area</p><h2>Across the<br>Coachella Valley.</h2></div><p>Home technology service in these local communities.</p></div>
+        <div class="map-card">
+          <div class="map-lines" aria-hidden="true"></div>
+          <ul class="city-list"><li><span></span>Palm Springs</li><li><span></span>Palm Desert</li><li><span></span>Indio</li><li><span></span>La Quinta</li><li><span></span>Rancho Mirage</li><li><span></span>Cathedral City</li><li><span></span>Coachella</li><li><span></span>Bermuda Dunes</li></ul>
+          <div class="map-badge"><span class="pulse-dot"></span><strong>TaskCore Service Area</strong><small>Coachella Valley, California</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section reviews-section" id="reviews">
+      <div class="shell reveal">
+        <div class="section-heading"><div><p class="eyebrow">Reviews</p><h2>Customer feedback,<br>coming soon.</h2></div><p>Verified customer feedback will be displayed here when available.</p></div>
+        <div class="reviews-placeholder"><span class="stars" aria-hidden="true">&#9734; &#9734; &#9734; &#9734; &#9734;</span><strong>Future Google Reviews</strong><p>This is a clearly labeled placeholder. No customer testimonials have been added.</p></div>
+      </div>
     </section>
 
     <section class="contact-section" id="contact">
-      <div class="wrap contact-card">
-        <div><p class="kicker light">Ready when you are</p><h2>Let&rsquo;s solve<br>your next task.</h2><button class="button primary" id="book-button-bottom" type="button">Book an Appointment <span aria-hidden="true">↗</span></button></div>
-        <address><strong>Jay</strong><span>Owner / Installer</span><a href="tel:+14428225367">(442) 822-5367</a><span>Coachella Valley, CA</span></address>
+      <div class="shell reveal">
+        <p class="eyebrow">Contact TaskCore</p><h2>Ready to solve<br>your next task?</h2>
+        <div class="contact-grid">
+          <a href="tel:+14428225367"><span>Call</span><strong>(442) 822-5367</strong><b aria-hidden="true">&#8599;</b></a>
+          <a href="sms:+14428225367?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20"><span>Text</span><strong>Message Jay</strong><b aria-hidden="true">&#8599;</b></a>
+          <button class="booking-trigger" type="button"><span>Book</span><strong>Appointment</strong><b aria-hidden="true">&#8599;</b></button>
+          <div><span>Business Hours</span><strong>By appointment</strong><small>Call or text to schedule</small></div>
+        </div>
       </div>
     </section>
   </main>
 
-  <footer><div class="wrap"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">TC</span><span>TASKCORE</span></a><p>Home Technology &amp; Installation</p><p>&copy; <span id="year"></span> TaskCore</p></div></footer>
+  <footer><div class="shell"><a class="wordmark" href="#top"><span class="logo-mark" aria-hidden="true">TC</span><span>TASKCORE</span></a><p>Home Technology &amp; Installation</p><p>&copy; <span id="year"></span> TaskCore</p></div></footer>
 
-  <dialog id="booking-dialog" aria-labelledby="dialog-title"><div class="dialog-icon" aria-hidden="true">i</div><h2 id="dialog-title">Booking connection in progress</h2><p>Online booking is being connected. Please call or text Jay at (442) 822-5367.</p><div class="dialog-actions"><a class="button primary" href="tel:+14428225367">Call Jay</a><a class="button secondary dark" href="sms:+14428225367?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jay</a></div><button class="dialog-close" type="button" aria-label="Close booking message">Close</button></dialog>
+  <dialog id="booking-dialog" aria-labelledby="dialog-title"><div class="dialog-mark" aria-hidden="true">TC</div><h2 id="dialog-title">Online booking is being connected.</h2><p>Please call or text Jay at (442) 822-5367.</p><div class="dialog-actions"><a class="button button-primary" href="tel:+14428225367">Call Jay</a><a class="button button-outline" href="sms:+14428225367?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jay</a></div><button class="dialog-close" type="button" aria-label="Close booking message">Close</button></dialog>
+
+  <div class="offline-toast" id="offline-toast" role="status" aria-live="polite">You&rsquo;re offline. The TaskCore portal is still available.</div>
 </body>
 </html>

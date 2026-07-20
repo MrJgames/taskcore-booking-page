@@ -2,6 +2,8 @@
 
 A mobile-first, one-page website for TaskCore. It uses only HTML, CSS, and vanilla JavaScript, so it can be hosted free with GitHub Pages.
 
+Version 2 adds an app-style customer portal, a quote request saved only in the visitor's browser, temporary photo previews, and an installable offline experience. Quote details are not sent to TaskCore until a future submission service is configured.
+
 ## 1. Open the site locally
 
 The simplest option is to double-click `index.html`. For the most accurate test, open PowerShell in this folder and run:
@@ -94,6 +96,14 @@ Open `assets/taskcore-booking-qr.png` on a different screen or print one sample.
 ## Privacy-friendly local click counts
 
 The page stores counts for Book, Call, and Text button clicks only in that visitor's browser using `localStorage`. These counts never leave the device, and they do **not** let TaskCore or the site owner see customer activity. Actual appointment tracking happens through Google Form responses or Google Calendar appointments.
+
+## Quote requests and photos
+
+The Version 2 quote form saves the latest request only in the visitor's browser under `taskcore_quote_request`. The success message clearly says Jay has not received it yet. Selected photos are previewed temporarily using browser memory; they are never placed in `localStorage`, uploaded, or retained after the page closes.
+
+## Install the TaskCore app
+
+The site includes `manifest.json` and `service-worker.js`. On supported browsers, an **Install App** button appears after the browser confirms the site can be installed. On iPhone or iPad, open the published site in Safari, tap **Share**, then **Add to Home Screen**. The main static page remains available after it has been visited once, even when the device is offline.
 
 ## Important checks before sharing
 
