@@ -1,0 +1,2 @@
+const TASKCORE_BOOKING_URL = "";
+const TASKCORE_WEBSITE_URL = "";
