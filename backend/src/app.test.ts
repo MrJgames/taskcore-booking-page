@@ -41,6 +41,12 @@ afterEach(async () => {
 });
 
 describe("POST /api/service-requests", () => {
+  it("serves an unauthenticated database-aware health check", async () => {
+    const { app } = await testApp();
+    const response = await request(app).get("/health").expect(200);
+    expect(response.body).toEqual({ status: "ok", database: "connected" });
+  });
+
   it("validates and stores a valid request", async () => {
     const { app, auth } = await testApp();
     const created = await request(app).post("/api/service-requests").send(validRequest).expect(201);

@@ -4,7 +4,7 @@ import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import type { Kysely } from "kysely";
+import { sql, type Kysely } from "kysely";
 import type { AppConfig } from "./config.js";
 import { createAdminAuth } from "./auth.js";
 import type { TaskCoreDatabase } from "./types.js";
@@ -62,7 +62,14 @@ export function createApp(config: AppConfig, db: Kysely<TaskCoreDatabase>) {
   }));
   app.use(express.json({ limit: config.bodyLimit, strict: true }));
 
-  app.get("/health", (_request, response) => response.json({ status: "ok" }));
+  app.get("/health", async (_request, response) => {
+    try {
+      await sql`select 1`.execute(db);
+      response.json({ status: "ok", database: "connected" });
+    } catch {
+      response.status(503).json({ status: "unavailable" });
+    }
+  });
 
   const submissionLimiter = rateLimit({
     windowMs: config.rateLimitWindowMs,

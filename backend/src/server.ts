@@ -7,8 +7,9 @@ assertProductionConfig(config);
 const db = createDatabase(config);
 await initializeDatabase(db);
 
-const server = createApp(config, db).listen(config.port, () => {
-  console.log(`TaskCore API listening on http://localhost:${config.port}`);
+const host = "0.0.0.0";
+const server = createApp(config, db).listen(config.port, host, () => {
+  console.log(`TaskCore API listening on ${host}:${config.port}`);
 });
 
 async function shutdown() {

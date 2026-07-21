@@ -45,4 +45,10 @@ export function assertProductionConfig(config: AppConfig): void {
   if (!config.adminUsername || config.adminPassword.length < 16 || config.adminPassword === "replace-with-a-long-random-password") {
     throw new Error("ADMIN_USERNAME and an ADMIN_PASSWORD of at least 16 characters are required.");
   }
+  if (config.databaseUrl && !/^postgres(?:ql)?:\/\//i.test(config.databaseUrl)) {
+    throw new Error("DATABASE_URL must be a PostgreSQL connection string.");
+  }
+  if (config.nodeEnv === "production" && !config.databaseUrl) {
+    throw new Error("DATABASE_URL is required in production. SQLite is for local development only.");
+  }
 }
