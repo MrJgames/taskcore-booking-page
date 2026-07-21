@@ -1,114 +1,168 @@
-# TaskCore Booking Page
+# TaskCore Website and Service Request API
 
-A mobile-first, one-page website for TaskCore. It uses only HTML, CSS, and vanilla JavaScript, so it can be hosted free with GitHub Pages.
+TaskCore has two deliberately separate parts:
 
-Version 2 provides an app-style customer portal, a text-ready appointment request, temporary photo previews, and an installable offline experience. The site remains fully static and requires no backend.
+- The existing static customer website in the repository root. It remains compatible with GitHub Pages and keeps Call Jay, Text Jay, Book Appointment, the PWA, QR assets, photo previews, and SMS fallback.
+- A small Node.js, Express, and TypeScript API in `backend/`. It validates and stores service requests and serves Jay's protected admin page.
 
-## 1. Open the site locally
+The customer website works without the backend. When `TASKCORE_API_URL` is blank or the API cannot be reached, the completed form offers **Text Request** and **Copy Request** so the customer does not lose their information.
 
-The simplest option is to double-click `index.html`. For the most accurate test, open PowerShell in this folder and run:
+## Architecture
+
+```text
+GitHub Pages customer site
+        |
+        | HTTPS POST /api/service-requests
+        v
+Express + TypeScript backend
+        |
+        +-- SQLite for local development
+        +-- PostgreSQL when DATABASE_URL is configured
+        +-- Protected /admin/ page for Jay
+```
+
+Kysely provides the database abstraction. The backend automatically uses PostgreSQL when `DATABASE_URL` is present and SQLite otherwise.
+
+## Run the complete project locally
+
+Node.js 20 or newer and Python are required for the commands below.
+
+### 1. Start the backend
+
+Open PowerShell in the project folder:
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+npm install
+npm run dev
+```
+
+Before starting, open `backend/.env` and replace `ADMIN_PASSWORD` with a long local password. The API will be available at `http://localhost:3000`; its health check is `http://localhost:3000/health`.
+
+The first start creates `backend/data/taskcore.db`. The `backend/.env`, local database, installed packages, and compiled files are ignored by Git.
+
+### 2. Connect the local frontend
+
+In the root `config.js`, temporarily set:
+
+```javascript
+const TASKCORE_API_URL = "http://localhost:3000";
+```
+
+Do not use localhost in the published website. Production must use the public HTTPS origin of the deployed backend.
+
+### 3. Start the frontend
+
+Open a second PowerShell window in the project root:
 
 ```powershell
 py -m http.server 8000
 ```
 
-Then open `http://localhost:8000` in a browser. Keep the PowerShell window open while testing. Press `Ctrl+C` to stop the server.
+Open `http://localhost:8000`. Submit a request, then open `http://localhost:3000/admin/`. The browser will ask for `ADMIN_USERNAME` and `ADMIN_PASSWORD` from `backend/.env`.
 
-## 2. Add the Google booking link
+Press `Ctrl+C` in both PowerShell windows when finished.
 
-Open `config.js` in Notepad. Paste the full Google Form or Google Calendar appointment link between the quotation marks:
+## Environment variables
 
-```javascript
-const TASKCORE_BOOKING_URL = "PASTE THE FULL GOOGLE LINK HERE";
+All backend variables are documented in `backend/.env.example`:
+
+- `PORT`: HTTP port; defaults to `3000`.
+- `NODE_ENV`: use `production` on the deployed backend.
+- `DATABASE_URL`: PostgreSQL connection string. Leave blank for local SQLite.
+- `SQLITE_PATH`: local database path; defaults to `./data/taskcore.db`.
+- `ADMIN_USERNAME`: Jay's admin username.
+- `ADMIN_PASSWORD`: unique, randomly generated admin password of at least 16 characters.
+- `CORS_ORIGINS`: comma-separated allowed browser origins. GitHub Pages uses `https://mrjgames.github.io` as the origin; paths are not included.
+- `RATE_LIMIT_WINDOW_MS`: public submission rate-limit window.
+- `RATE_LIMIT_MAX`: maximum submissions per IP during the window.
+- `BODY_LIMIT`: maximum JSON body size.
+- `TRUST_PROXY`: set to `true` only when the chosen host documents that Express should trust its proxy.
+
+Never put the admin password, database URL, API keys, or other secrets in `config.js`, frontend files, or Git.
+
+## Database
+
+The `service_requests` table stores:
+
+- unique request ID
+- created, submitted, and last-updated timestamps
+- customer name, phone, and optional email
+- service address and issue description
+- preferred contact method
+- preferred service date and requested arrival window
+- status: `New`, `Contacted`, `Scheduled`, `Completed`, or `Declined`
+- Jay's private note
+
+New requests are listed first in the admin page.
+
+## API endpoints
+
+- `GET /health` — public health check.
+- `POST /api/service-requests` — public, validated, rate-limited request submission.
+- `GET /api/admin/service-requests` — protected request list.
+- `GET /api/admin/service-requests/:id` — protected request detail.
+- `PATCH /api/admin/service-requests/:id` — protected status/private-note update.
+- `GET /admin/` — protected admin page.
+
+Admin routes use environment-configured HTTP Basic authentication. Production must use HTTPS so credentials and customer data are encrypted in transit.
+
+## Testing and builds
+
+From `backend/`:
+
+```powershell
+npm test
+npm run build
+npm start
 ```
 
-Save the file. When this value is blank, the booking button smoothly moves the customer to the quote request form. When it contains a link, the booking page opens in a new tab.
+The automated suite covers valid submission, missing fields, invalid phone numbers, invalid arrival windows, rate limiting, protected admin routes, database listing, and status/private-note updates.
 
-## 3. Add the final website URL
+Before deployment, also test the customer form from the real GitHub Pages origin against the deployed API, confirm the admin page works over HTTPS, and retest Call Jay, Text Jay, Book Appointment, photo previews, PWA installation, and offline static-page loading.
 
-After GitHub Pages gives you the published address, open `config.js` and add it:
+## Frontend configuration
+
+`config.js` contains:
 
 ```javascript
+const TASKCORE_BOOKING_URL = "";
 const TASKCORE_WEBSITE_URL = "https://mrjgames.github.io/taskcore-booking-page/";
+const TASKCORE_API_URL = "";
 ```
 
-Use the exact address shown by GitHub Pages, including `https://`.
+- `TASKCORE_BOOKING_URL`: when blank, Book Appointment scrolls to the service request form; otherwise it opens that URL.
+- `TASKCORE_WEBSITE_URL`: final public customer-site URL used by the QR generator.
+- `TASKCORE_API_URL`: deployed backend origin, for example `https://api.example.com`. Do not add `/api/service-requests` and do not include a trailing slash.
 
-## 4. Generate the real QR code
+Photos are not uploaded by this backend version. They remain temporary browser previews and are useful only when the customer uses the SMS fallback and manually attaches them.
 
-Install Python from [python.org](https://www.python.org/downloads/) if it is not already installed. During installation, select **Add Python to PATH**. Then open PowerShell in this folder and run:
+## What still must be deployed
 
-```powershell
-py -m pip install "qrcode[pil]"
-py generate_qr.py
+GitHub Pages can host only the static frontend. Before enabling online submissions publicly:
+
+1. Choose a Node.js host that provides HTTPS and persistent PostgreSQL.
+2. Create the PostgreSQL database and set `DATABASE_URL` on that host.
+3. Set a strong `ADMIN_USERNAME` and `ADMIN_PASSWORD` as host environment variables.
+4. Set `CORS_ORIGINS=https://mrjgames.github.io`.
+5. Deploy the `backend/` folder and verify `/health` and `/admin/` over HTTPS.
+6. Put the deployed backend origin in `TASKCORE_API_URL`.
+7. Run the complete customer-to-admin flow from the GitHub Pages site.
+8. Commit and push only after that production test succeeds.
+
+No backend has been deployed by this project update.
+
+## Roll back to text-message-only mode
+
+Set the API URL to blank and publish the static files:
+
+```javascript
+const TASKCORE_API_URL = "";
 ```
 
-The script reads the final address from `config.js` and creates a high-resolution PNG plus a scalable SVG in `assets/qr/`. It will stop with a clear message if the website URL is blank or invalid. Run it again whenever the published address changes.
+The customer form will preserve its details and show **Text Request** and **Copy Request**. Call, Text, Book Appointment, QR, photo previews, and the PWA continue to work independently.
 
-## 5. Create a GitHub repository
+## QR and PWA
 
-This project already has a local Git repository and an initial `main` branch. Nothing has been sent to GitHub.
-
-1. Sign in at [github.com](https://github.com/).
-2. Select the **+** menu near the upper-right corner, then **New repository**.
-3. Enter `taskcore-booking-page` as the repository name.
-4. Choose **Public** so GitHub Pages can host it free.
-5. Leave **Add a README**, **Add .gitignore**, and **Choose a license** turned off because the project already contains its own files.
-6. Select **Create repository**.
-7. Keep the new repository page open. GitHub will display the repository address needed for the next step.
-
-When ready to connect and upload the local project, open PowerShell in this project folder and run the commands GitHub shows under **…or push an existing repository from the command line**. They will look like this:
-
-```powershell
-git remote add origin YOUR_GITHUB_REPOSITORY_ADDRESS
-git push -u origin main
-```
-
-Replace `YOUR_GITHUB_REPOSITORY_ADDRESS` with the exact address displayed by GitHub. Do not run these commands until you are ready to upload publicly.
-
-## 6. Publish free with GitHub Pages
-
-1. After the files have been pushed, open the repository's **Settings**.
-2. Select **Pages** in the left menu.
-3. Under **Build and deployment**, choose **Deploy from a branch**.
-4. Choose the `main` branch and `/ (root)` folder, then select **Save**.
-5. Wait a few minutes and refresh the Pages settings. GitHub will show the published address.
-6. Put that address in `TASKCORE_WEBSITE_URL`, generate the QR code, then commit and push the updated `config.js` and QR image.
-
-Nothing in this project is published automatically.
-
-## 7. Test the Call button
-
-Open the site on a phone and tap **Call Jay**. Confirm the phone opens its calling screen with `(442) 822-5357`. Cancel before placing the call if this is only a test. Desktop computers may ask which calling app to use.
-
-## 8. Test the Text button
-
-Open the site on a phone and tap **Text Jay**. Confirm a new message opens to `(442) 822-5357` with the prepared TaskCore message. Do not send it unless desired.
-
-## 9. Test the booking button
-
-Leave `TASKCORE_BOOKING_URL` blank and confirm **Book Appointment** moves to the quote form. If a real booking link is added later, reload the page and confirm the button opens that booking page in a new tab.
-
-## 10. Test the QR code before printing
-
-Open `assets/qr/taskcore-website-qr.png` on a different screen or print one sample. Scan it with at least one phone camera. Confirm the preview shows the exact GitHub Pages address and opens the live TaskCore page. Test again after any URL change and before ordering business cards.
-
-## Privacy-friendly local click counts
-
-The page stores counts for Book, Call, and Text button clicks only in that visitor's browser using `localStorage`. These counts never leave the device, and they do **not** let TaskCore or the site owner see customer activity. Actual appointment tracking happens through Google Form responses or Google Calendar appointments.
-
-## Quote requests and photos
-
-The quote form prepares a formatted request with **Text Request** and **Copy Request** actions. Text Request opens a message to `(442) 822-5357`; the customer must send it before TaskCore receives anything. Selected photos are previewed temporarily using browser memory and must be attached manually after the messaging app opens. They are never stored or uploaded by the website.
-
-## Install the TaskCore app
-
-The site includes `manifest.json` and `service-worker.js`. On supported browsers, an **Install App** button appears after the browser confirms the site can be installed. On iPhone or iPad, open the published site in Safari, tap **Share**, then **Add to Home Screen**. The main static page remains available after it has been visited once, even when the device is offline.
-
-## Important checks before sharing
-
-- Confirm both URLs in `config.js` are the intended real links.
-- Test on a phone and a computer.
-- Scan the QR code from the final published page.
-- Keep Jay's phone number as `(442) 822-5357` / `+14428225357` in all links.
-- Keep the contact email as `Taskcorepros@gmail.com`.
+The final website QR files remain in `assets/qr/`. Run `py generate_qr.py` if the public website URL changes. PWA icons and offline static assets remain under `assets/icons/`, `manifest.json`, and `service-worker.js`.

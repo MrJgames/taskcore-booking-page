@@ -3,3 +3,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 work/
+backend/node_modules/
+backend/dist/
+backend/data/
+backend/.env

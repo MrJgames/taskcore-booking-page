@@ -12,6 +12,8 @@
   const installButton = document.getElementById("install-button");
   const mobileContactBar = document.querySelector(".mobile-contact-bar");
   const dateField = quoteForm.elements.appointmentDate;
+  const submitButton = quoteForm.querySelector('button[type="submit"]');
+  const apiUrl = typeof TASKCORE_API_URL === "string" ? TASKCORE_API_URL.trim().replace(/\/$/, "") : "";
   let deferredInstallPrompt = null;
   let previewUrls = [];
   let preparedRequest = "";
@@ -30,6 +32,7 @@
     preparedRequest = "";
     requestActions.hidden = true;
     formStatus.textContent = "";
+    formStatus.className = "form-status";
   }
 
   function handleBooking() {
@@ -55,6 +58,7 @@
       `Address: ${String(data.get("address") || "").trim()}`,
       `Issue: ${String(data.get("issue") || "").trim()}`,
       `Preferred date: ${String(data.get("appointmentDate") || "").trim()}`,
+      `Requested arrival window: ${String(data.get("arrivalWindow") || "").trim()}`,
       `Preferred contact: ${String(data.get("contactMethod") || "").trim()}`,
       `Photos selected: ${photoCount}${photoCount ? " (I will attach them manually.)" : ""}`
     ].join("\n");
@@ -65,15 +69,66 @@
   document.querySelectorAll(`a[href^="sms:${PHONE}"]`).forEach((link) => link.addEventListener("click", () => recordClick("text")));
 
   quoteForm.addEventListener("input", hidePreparedRequest);
-  quoteForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (!quoteForm.reportValidity()) return;
-    preparedRequest = formatRequest(new FormData(quoteForm));
-    textRequest.href = `sms:${PHONE}?body=${encodeURIComponent(preparedRequest)}`;
+  function showTextFallback(message) {
     requestActions.hidden = false;
-    formStatus.textContent = "Request ready. Text it to Jay or copy it.";
+    formStatus.className = "form-status error";
+    formStatus.textContent = message;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     requestActions.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
+  }
+
+  quoteForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!quoteForm.reportValidity()) return;
+    const formData = new FormData(quoteForm);
+    preparedRequest = formatRequest(formData);
+    textRequest.href = `sms:${PHONE}?body=${encodeURIComponent(preparedRequest)}`;
+    requestActions.hidden = true;
+
+    if (!apiUrl) {
+      showTextFallback("Online submission is not configured yet. Use Text Request so Jay receives your information.");
+      return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.setAttribute("aria-busy", "true");
+    formStatus.className = "form-status";
+    formStatus.textContent = "Sending your request…";
+    const payload = {
+      name: String(formData.get("name") || "").trim(),
+      phone: String(formData.get("phone") || "").trim(),
+      email: String(formData.get("email") || "").trim() || undefined,
+      address: String(formData.get("address") || "").trim(),
+      issue: String(formData.get("issue") || "").trim(),
+      contactMethod: String(formData.get("contactMethod") || "").trim(),
+      appointmentDate: String(formData.get("appointmentDate") || "").trim(),
+      arrivalWindow: String(formData.get("arrivalWindow") || "").trim(),
+      submissionTimestamp: new Date().toISOString()
+    };
+
+    try {
+      const response = await fetch(`${apiUrl}/api/service-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        if (response.status === 400) {
+          formStatus.className = "form-status error";
+          formStatus.textContent = "Please check your request details and try again.";
+          return;
+        }
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      formStatus.className = "form-status success";
+      formStatus.textContent = "Your request has been sent to TaskCore. Jay will contact you to confirm availability.";
+      preparedRequest = "";
+    } catch (_) {
+      showTextFallback("The online request service could not be reached. Use Text Request so Jay still receives your information.");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.removeAttribute("aria-busy");
+    }
   });
 
   copyRequest.addEventListener("click", async () => {

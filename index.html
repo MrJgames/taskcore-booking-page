@@ -25,9 +25,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-3">
-  <script src="config.js?v=20260720-3" defer></script>
-  <script src="script.js?v=20260720-3" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20260720-4">
+  <script src="config.js?v=20260720-4" defer></script>
+  <script src="script.js?v=20260720-4" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -92,8 +92,8 @@
       <div class="shell quote-layout reveal">
         <div class="quote-copy">
           <p class="eyebrow">Request an Appointment</p><h2>Tell Jay what<br>you need.</h2>
-          <p>Enter the details once, then send the prepared text directly to Jay.</p>
-          <div class="privacy-note"><span aria-hidden="true">&#10003;</span><p><strong>You control sending</strong><br>Nothing is sent until you choose Text Request.</p></div>
+          <p>Send your service request directly to TaskCore. Jay will contact you to confirm availability.</p>
+          <div class="privacy-note"><span aria-hidden="true">&#10003;</span><p><strong>Confirmation required</strong><br>Your requested date and arrival window are not guaranteed until Jay confirms them.</p></div>
         </div>
         <form class="quote-form" id="quote-form">
           <div class="field-row">
@@ -107,20 +107,22 @@
           <label><span>Describe the issue *</span><textarea name="issue" rows="5" required placeholder="What can TaskCore help with?"></textarea></label>
           <div class="field-row">
             <label><span>Preferred contact *</span><select name="contactMethod" required><option value="">Choose one</option><option>Call</option><option>Text</option><option>Email</option></select></label>
-            <label><span>Preferred date *</span><input name="appointmentDate" type="date" required></label>
+            <label><span>Preferred service date *</span><input name="appointmentDate" type="date" required></label>
           </div>
+          <label><span>Requested arrival window *</span><select name="arrivalWindow" required><option value="">Choose one</option><option>8 AM&ndash;10 AM</option><option>10 AM&ndash;12 PM</option><option>12 PM&ndash;3 PM</option><option>3 PM&ndash;5 PM</option><option>Flexible</option></select></label>
+          <p class="field-note">The requested date and time window are preferences, not a confirmed appointment.</p>
           <div class="upload-area">
             <input id="photo-input" name="photos" type="file" accept="image/*" multiple>
-            <label for="photo-input"><span class="upload-plus" aria-hidden="true">+</span><span><strong>Add photos</strong><small>Optional &middot; Select one or more images</small></span></label>
+            <label for="photo-input"><span class="upload-plus" aria-hidden="true">+</span><span><strong>Add photos for text fallback</strong><small>Optional &middot; Photos are previewed only and are not submitted through the website yet</small></span></label>
             <div class="photo-previews" id="photo-previews" aria-live="polite"></div>
           </div>
-          <button class="button button-primary submit-button" type="submit">Prepare Text Request <span aria-hidden="true">&#8594;</span></button>
+          <button class="button button-primary submit-button" type="submit">Submit Service Request <span aria-hidden="true">&#8594;</span></button>
           <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
           <div class="request-actions" id="request-actions" hidden>
-            <p>Photos cannot be attached automatically. Please attach your selected photos after your messaging app opens.</p>
+            <p>The online request service is unavailable. Your information is still here. Send the prepared request by text instead. Photos cannot be attached automatically; please attach selected photos after your messaging app opens.</p>
             <div><a class="button button-primary" id="text-request" href="sms:+14428225357">Text Request <span aria-hidden="true">&#8594;</span></a><button class="button button-outline" id="copy-request" type="button">Copy Request</button></div>
           </div>
-          <p class="quote-privacy">TaskCore does not receive your request until you send the text message. Photos remain on your device; nothing is uploaded automatically.</p>
+          <p class="quote-privacy">Request details are sent securely only when the online service is configured. Photos remain on your device and are not uploaded.</p>
         </form>
       </div>
     </section>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#080b12">
+  <title>TaskCore Requests</title>
+  <link rel="stylesheet" href="./admin.css">
+  <script src="./admin.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#requests">Skip to requests</a>
+  <header>
+    <div class="shell header-inner">
+      <div><p class="eyebrow">TaskCore Admin</p><h1>Service requests</h1></div>
+      <button id="refresh" type="button">Refresh</button>
+    </div>
+  </header>
+  <main class="shell" id="requests">
+    <p class="page-status" id="page-status" role="status" aria-live="polite">Loading requests…</p>
+    <div class="request-list" id="request-list"></div>
+  </main>
+  <template id="request-template">
+    <details class="request-card">
+      <summary class="request-summary">
+        <div><span class="status-badge"></span><h2 class="customer-name"></h2><p class="submitted-date"></p></div>
+        <span class="open-label">Open request</span>
+      </summary>
+      <div class="quick-actions"><a class="call-link">Call customer</a><a class="text-link">Text customer</a></div>
+      <dl class="request-details">
+        <div><dt>Phone</dt><dd class="phone"></dd></div>
+        <div><dt>Preferred contact</dt><dd class="contact-method"></dd></div>
+        <div><dt>Service address</dt><dd class="address"></dd></div>
+        <div><dt>Preferred date</dt><dd class="preferred-date"></dd></div>
+        <div><dt>Requested window</dt><dd class="arrival-window"></dd></div>
+      </dl>
+      <div class="issue-block"><h3>Issue</h3><p class="issue"></p></div>
+      <form class="admin-form">
+        <label><span>Status</span><select name="status"><option>New</option><option>Contacted</option><option>Scheduled</option><option>Completed</option><option>Declined</option></select></label>
+        <label><span>Private note</span><textarea name="privateNote" rows="3" maxlength="2000" placeholder="Visible only here"></textarea></label>
+        <div><button type="submit">Save changes</button><span class="save-status" role="status" aria-live="polite"></span></div>
+      </form>
+    </details>
+  </template>
+</body>
+</html>
