@@ -79,7 +79,7 @@ Nothing in this project is published automatically.
 
 ## 7. Test the Call button
 
-Open the site on a phone and tap **Call Now**. Confirm the phone opens its calling screen with `(442) 822-5357`. Cancel before placing the call if this is only a test. Desktop computers may ask which calling app to use.
+Open the site on a phone and tap **Call Jay**. Confirm the phone opens its calling screen with `(442) 822-5357`. Cancel before placing the call if this is only a test. Desktop computers may ask which calling app to use.
 
 ## 8. Test the Text button
 

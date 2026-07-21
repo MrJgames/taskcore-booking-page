@@ -10,7 +10,7 @@
   const textRequest = document.getElementById("text-request");
   const copyRequest = document.getElementById("copy-request");
   const installButton = document.getElementById("install-button");
-  const offlineToast = document.getElementById("offline-toast");
+  const mobileContactBar = document.querySelector(".mobile-contact-bar");
   const dateField = quoteForm.elements.appointmentDate;
   let deferredInstallPrompt = null;
   let previewUrls = [];
@@ -71,8 +71,9 @@
     preparedRequest = formatRequest(new FormData(quoteForm));
     textRequest.href = `sms:${PHONE}?body=${encodeURIComponent(preparedRequest)}`;
     requestActions.hidden = false;
-    formStatus.textContent = "Request ready. Choose Text Request or Copy Request below.";
-    requestActions.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    formStatus.textContent = "Request ready. Text it to Jay or copy it.";
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    requestActions.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
   });
 
   copyRequest.addEventListener("click", async () => {
@@ -134,6 +135,18 @@
   }, { threshold: 0.1 }) : null;
   document.querySelectorAll(".reveal").forEach((element) => revealObserver ? revealObserver.observe(element) : element.classList.add("visible"));
 
+  if ("IntersectionObserver" in window) {
+    mobileContactBar.setAttribute("aria-hidden", "true");
+    const heroObserver = new IntersectionObserver(([entry]) => {
+      const showQuickContact = !entry.isIntersecting;
+      mobileContactBar.classList.toggle("visible", showQuickContact);
+      mobileContactBar.setAttribute("aria-hidden", String(!showQuickContact));
+    }, { threshold: 0.1 });
+    heroObserver.observe(document.querySelector(".hero"));
+  } else {
+    mobileContactBar.classList.add("visible");
+  }
+
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredInstallPrompt = event;
@@ -150,13 +163,6 @@
     installButton.hidden = true;
     deferredInstallPrompt = null;
   });
-
-  function updateNetworkStatus() {
-    offlineToast.classList.toggle("show", !navigator.onLine);
-  }
-  window.addEventListener("online", updateNetworkStatus);
-  window.addEventListener("offline", updateNetworkStatus);
-  updateNetworkStatus();
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
