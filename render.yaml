@@ -19,7 +19,7 @@ services:
           name: taskcore-postgres
           property: connectionString
       - key: CORS_ORIGINS
-        value: https://mrjgames.github.io
+        value: https://mrjgames.github.io,https://taskcore-api-rlvr.onrender.com
       - key: ADMIN_USERNAME
         sync: false
       - key: ADMIN_PASSWORD
