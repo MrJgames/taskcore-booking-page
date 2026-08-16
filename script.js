@@ -1,5 +1,6 @@
 (function () {
   "use strict";
+  document.documentElement.classList.add("js");
 
   const PHONE = "+14428225357";
   const quoteForm = document.getElementById("quote-form");
@@ -42,8 +43,9 @@
       return;
     }
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    quoteForm.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
-    window.setTimeout(() => quoteForm.elements.name.focus({ preventScroll: true }), reducedMotion ? 0 : 450);
+    const booking = document.getElementById("book");
+    booking.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    window.setTimeout(() => booking.querySelector("input")?.focus({ preventScroll: true }), reducedMotion ? 0 : 450);
   }
 
   function formatRequest(data) {
@@ -77,8 +79,68 @@
     requestActions.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
   }
 
+  function setValidationMessage(fieldName, message) {
+    const field = quoteForm.elements[fieldName];
+    if (!field || typeof field.setCustomValidity !== "function") return;
+    field.setCustomValidity(message);
+    if (message) field.setAttribute("aria-invalid", "true");
+    else field.removeAttribute("aria-invalid");
+  }
+
+  function applyClientValidation() {
+    const fields = quoteForm.elements;
+    ["name", "phone", "email", "address", "issue", "contactMethod", "appointmentDate", "arrivalWindow"].forEach((name) => setValidationMessage(name, ""));
+    const name = String(fields.name.value || "").trim();
+    const phone = String(fields.phone.value || "").trim();
+    const email = String(fields.email.value || "").trim();
+    const address = String(fields.address.value || "").trim();
+    const issue = String(fields.issue.value || "").trim();
+    const contactMethod = String(fields.contactMethod.value || "");
+    const appointmentDate = String(fields.appointmentDate.value || "");
+    const arrivalWindow = String(fields.arrivalWindow.value || "");
+
+    if (!name) setValidationMessage("name", "Please enter your name.");
+    else if (name.length < 2) setValidationMessage("name", "Please enter your name using at least 2 characters.");
+    if (!phone) setValidationMessage("phone", "Please enter your phone number.");
+    else if (phone.replace(/\D/g, "").length < 10 || phone.replace(/\D/g, "").length > 15) setValidationMessage("phone", "Please enter a valid phone number with 10 to 15 digits.");
+    if (email && fields.email.validity.typeMismatch) setValidationMessage("email", "Please enter a valid email address.");
+    if (contactMethod === "Email" && !email) setValidationMessage("email", "Please enter an email address when Email is your preferred contact method.");
+    if (!address) setValidationMessage("address", "Please enter the service address.");
+    else if (address.length < 5) setValidationMessage("address", "Please enter a service address using at least 5 characters.");
+    if (!issue) setValidationMessage("issue", "Please describe the issue.");
+    else if (issue.length < 10) setValidationMessage("issue", "Please describe the issue using at least 10 characters.");
+    if (!contactMethod) setValidationMessage("contactMethod", "Please choose a preferred contact method.");
+    if (!appointmentDate) setValidationMessage("appointmentDate", "Please choose a preferred service date.");
+    else if (appointmentDate < localToday) setValidationMessage("appointmentDate", "Please choose today or a future date.");
+    if (!arrivalWindow) setValidationMessage("arrivalWindow", "Please choose an arrival window.");
+  }
+
+  function showServerValidation(details) {
+    const fieldOrder = ["name", "phone", "email", "address", "issue", "contactMethod", "appointmentDate", "arrivalWindow"];
+    const fieldName = fieldOrder.find((name) => Array.isArray(details?.fields?.[name]) && details.fields[name].length);
+    const message = fieldName ? details.fields[fieldName][0] : details?.error || "Please check your request details and try again.";
+    formStatus.className = "form-status error";
+    formStatus.textContent = message;
+    if (!fieldName) return;
+    const field = quoteForm.elements[fieldName];
+    if (!field || typeof field.setCustomValidity !== "function") return;
+    field.setCustomValidity(message);
+    field.setAttribute("aria-invalid", "true");
+    field.focus({ preventScroll: true });
+    field.reportValidity();
+  }
+
+  quoteForm.addEventListener("input", (event) => {
+    const field = event.target;
+    if (field && typeof field.setCustomValidity === "function") {
+      field.setCustomValidity("");
+      field.removeAttribute("aria-invalid");
+    }
+  });
+
   quoteForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    applyClientValidation();
     if (!quoteForm.reportValidity()) return;
     const formData = new FormData(quoteForm);
     preparedRequest = formatRequest(formData);
@@ -86,7 +148,7 @@
     requestActions.hidden = true;
 
     if (!apiUrl) {
-      showTextFallback("Online submission is not configured yet. Use Text Request so Jay receives your information.");
+      showTextFallback("Online submission is not configured yet. Use Text Request so Jessie receives your information.");
       return;
     }
 
@@ -114,17 +176,17 @@
       });
       if (!response.ok) {
         if (response.status === 400) {
-          formStatus.className = "form-status error";
-          formStatus.textContent = "Please check your request details and try again.";
+          const details = await response.json().catch(() => null);
+          showServerValidation(details);
           return;
         }
         throw new Error(`Request failed with status ${response.status}`);
       }
       formStatus.className = "form-status success";
-      formStatus.textContent = "Your request has been sent to TaskCore. Jay will contact you to confirm availability.";
+      formStatus.textContent = "Your request has been sent to TaskCore. Jessie will contact you to confirm availability.";
       preparedRequest = "";
     } catch (_) {
-      showTextFallback("The online request service could not be reached. Use Text Request so Jay still receives your information.");
+      showTextFallback("The online request service could not be reached. Use Text Request so Jessie still receives your information.");
     } finally {
       submitButton.disabled = false;
       submitButton.removeAttribute("aria-busy");

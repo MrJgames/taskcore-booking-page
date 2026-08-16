@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://sandbox.web.squarecdn.com; frame-src 'self' https://sandbox.web.squarecdn.com; connect-src 'self' https://taskcore-api-rlvr.onrender.com https://sandbox.web.squarecdn.com https://pci-connect.squareupsandbox.com https://o160250.ingest.sentry.io; style-src 'self' 'unsafe-inline' https://sandbox.web.squarecdn.com; font-src 'self' https://square-fonts-production-f.squarecdn.com https://d1g145x70srn7h.cloudfront.net; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';">
   <meta name="theme-color" content="#080b12">
   <meta name="description" content="TaskCore provides home technology installation and support throughout Coachella Valley, California. Call, text, or request an appointment.">
   <meta name="robots" content="index, follow">
@@ -21,13 +22,13 @@
   <meta name="twitter:description" content="Home technology installation and support throughout Coachella Valley, California.">
   <link rel="canonical" href="https://mrjgames.github.io/taskcore-booking-page/">
   <title>TaskCore | Home Technology Installation &amp; Support</title>
-  <script>document.documentElement.classList.add("js");</script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-4">
+  <link rel="stylesheet" href="styles.css?v=20260730-1">
   <script src="config.js?v=20260720-4" defer></script>
-  <script src="script.js?v=20260720-4" defer></script>
+  <script src="script.js?v=20260730-1" defer></script>
+  <script type="module" src="booking.js?v=20260815-1"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -38,7 +39,7 @@
       <div class="nav-links">
         <a href="#services">Services</a><a href="#quote">Request</a><a href="#contact">Contact</a>
       </div>
-      <a class="nav-cta" href="tel:+14428225357">Call Jay</a>
+      <a class="nav-cta" href="tel:+14428225357">Call Jessie</a>
       <button class="install-button" id="install-button" type="button" hidden>Install App</button>
     </nav>
   </header>
@@ -52,8 +53,8 @@
         <p class="hero-category">Home Technology Installation <b>&amp;</b> Support</p>
         <p class="tagline">Solving Today&rsquo;s Tasks.<br><span>Connecting Tomorrow&rsquo;s Homes.</span></p>
         <div class="hero-actions" aria-label="Primary actions">
-          <a class="button button-primary" id="call-button" href="tel:+14428225357">Call Jay <span aria-hidden="true">&#8594;</span></a>
-          <a class="button button-glass" id="text-button" href="sms:+14428225357?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jay <span aria-hidden="true">&#8594;</span></a>
+          <a class="button button-primary" id="call-button" href="tel:+14428225357">Call Jessie <span aria-hidden="true">&#8594;</span></a>
+          <a class="button button-glass" id="text-button" href="sms:+14428225357?body=Hi%20Jessie%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jessie <span aria-hidden="true">&#8594;</span></a>
           <button class="button button-glass booking-trigger" id="book-button" type="button">Book Appointment <span aria-hidden="true">&#8599;</span></button>
         </div>
       </div>
@@ -78,12 +79,38 @@
 
     <section class="section section-light" id="why">
       <div class="shell reveal">
-        <div class="section-heading"><div><p class="eyebrow">Why TaskCore</p><h2>Direct help for<br>your home.</h2></div><p>Work directly with Jay, with clear communication from the first message to the finished task.</p></div>
+        <div class="section-heading"><div><p class="eyebrow">Why TaskCore</p><h2>Direct help for<br>your home.</h2></div><p>Work directly with Jessie, with clear communication from the first message to the finished task.</p></div>
         <div class="why-grid">
           <article class="premium-card"><span class="card-number">01</span><div class="mini-icon">PRO</div><h3>Professional</h3><p>Respectful, detail-oriented service in your home.</p></article>
-          <article class="premium-card"><span class="card-number">02</span><div class="mini-icon">JAY</div><h3>Direct Contact</h3><p>Call or text Jay without a call center or support queue.</p></article>
+          <article class="premium-card"><span class="card-number">02</span><div class="mini-icon">JESSIE</div><h3>Direct Contact</h3><p>Call or text Jessie without a call center or support queue.</p></article>
           <article class="premium-card"><span class="card-number">03</span><div class="mini-icon">TECH</div><h3>Technology Focused</h3><p>Practical help for devices, networks, and entertainment.</p></article>
           <article class="premium-card blue-card"><span class="card-number">04</span><div class="mini-icon">CV</div><h3>Coachella Valley</h3><p>Local service across communities throughout the valley.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section booking-section" id="book">
+      <div class="shell reveal">
+        <div class="section-heading"><div><p class="eyebrow">Book Online</p><h2>Choose a time.<br>Pay securely.</h2></div><p>For services with approved pricing. If you need an estimate first, the quote form remains available below.</p></div>
+        <div class="booking-shell" id="booking-flow" data-state="details">
+          <div class="booking-progress" aria-label="Booking steps"><span>1 Service</span><span>2 Details</span><span>3 Review</span><span>4 Payment</span><span>5 Confirmed</span></div>
+          <p class="booking-status" id="booking-status" role="status" aria-live="polite"></p>
+          <section data-booking-stage="details" aria-labelledby="booking-details-heading">
+            <h3 id="booking-details-heading" tabindex="-1">Service, appointment, and your information</h3>
+            <fieldset><legend>Choose a service</legend><div class="booking-choices" id="booking-services" aria-live="polite"></div></fieldset>
+            <a class="text-link" id="booking-quote-link" href="#quote" hidden>Request a quote for this service</a>
+            <fieldset><legend>Choose an available appointment</legend><div class="booking-slots" id="booking-slots" aria-live="polite"></div></fieldset>
+            <form id="booking-form">
+              <div class="field-row"><label><span>Name *</span><input name="name" autocomplete="name" minlength="2" maxlength="100" required></label><label><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="30" required></label></div>
+              <label><span>Email</span><input name="email" type="email" autocomplete="email" maxlength="254"></label>
+              <label><span>Service address *</span><input name="address" autocomplete="street-address" minlength="5" maxlength="250" required></label>
+              <label><span>Notes <small>Optional</small></span><textarea name="notes" rows="3" maxlength="1000" placeholder="Access details or helpful context"></textarea></label>
+              <button class="button button-primary" id="booking-continue" type="submit" disabled>Review deposit <span aria-hidden="true">&#8594;</span></button>
+            </form>
+          </section>
+          <section data-booking-stage="review" aria-labelledby="booking-review-heading" hidden><h3 id="booking-review-heading" tabindex="-1">Review your appointment and deposit</h3><div class="booking-summary" id="booking-review"></div><button class="button button-primary" id="booking-to-payment" type="button">Continue to secure payment <span aria-hidden="true">&#8594;</span></button></section>
+          <section data-booking-stage="payment" aria-labelledby="booking-payment-heading" id="booking-payment" hidden><h3 id="booking-payment-heading" tabindex="-1">Secure Square payment</h3><p>Card details are entered in Square-hosted fields. TaskCore never receives or stores your card number.</p><div id="square-card-container" class="square-card" aria-label="Secure card information"></div><button class="button button-primary" id="booking-pay" type="button" disabled>Pay deposit securely</button><p class="payment-safety">Do not refresh while a payment is processing. If the connection is interrupted, TaskCore checks the existing attempt before allowing another.</p></section>
+          <section data-booking-stage="confirmation" aria-labelledby="booking-confirmation-heading" hidden><div class="booking-confirmation" id="booking-confirmation"><h3 id="booking-confirmation-heading" tabindex="-1">Appointment confirmation</h3></div></section>
         </div>
       </div>
     </section>
@@ -91,20 +118,20 @@
     <section class="section quote-section" id="quote">
       <div class="shell quote-layout reveal">
         <div class="quote-copy">
-          <p class="eyebrow">Request an Appointment</p><h2>Tell Jay what<br>you need.</h2>
-          <p>Send your service request directly to TaskCore. Jay will contact you to confirm availability.</p>
-          <div class="privacy-note"><span aria-hidden="true">&#10003;</span><p><strong>Confirmation required</strong><br>Your requested date and arrival window are not guaranteed until Jay confirms them.</p></div>
+          <p class="eyebrow">Request an Appointment</p><h2>Tell Jessie what<br>you need.</h2>
+          <p>Send your service request directly to TaskCore. Jessie will contact you to confirm availability.</p>
+          <div class="privacy-note"><span aria-hidden="true">&#10003;</span><p><strong>Confirmation required</strong><br>Your requested date and arrival window are not guaranteed until Jessie confirms them.</p></div>
         </div>
-        <form class="quote-form" id="quote-form">
+        <form class="quote-form" id="quote-form" novalidate>
           <div class="field-row">
-            <label><span>Name *</span><input name="name" type="text" autocomplete="name" required></label>
-            <label><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" inputmode="tel" required></label>
+            <label><span>Name *</span><input name="name" type="text" autocomplete="name" minlength="2" maxlength="100" required></label>
+            <label><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="30" required></label>
           </div>
           <div class="field-row">
-            <label><span>Email <small>Optional</small></span><input name="email" type="email" autocomplete="email"></label>
-            <label><span>Service address *</span><input name="address" type="text" autocomplete="street-address" required></label>
+            <label><span>Email <small>Optional</small></span><input name="email" type="email" autocomplete="email" maxlength="254"></label>
+            <label><span>Service address *</span><input name="address" type="text" autocomplete="street-address" minlength="5" maxlength="250" required></label>
           </div>
-          <label><span>Describe the issue *</span><textarea name="issue" rows="5" required placeholder="What can TaskCore help with?"></textarea></label>
+          <label><span>Describe the issue *</span><textarea name="issue" rows="5" minlength="10" maxlength="2000" required placeholder="What can TaskCore help with?"></textarea></label>
           <div class="field-row">
             <label><span>Preferred contact *</span><select name="contactMethod" required><option value="">Choose one</option><option>Call</option><option>Text</option><option>Email</option></select></label>
             <label><span>Preferred service date *</span><input name="appointmentDate" type="date" required></label>
@@ -127,13 +154,6 @@
       </div>
     </section>
 
-    <section class="section about-section" id="about">
-      <div class="shell about-layout reveal">
-        <div class="portrait" aria-label="TaskCore owner profile graphic"><div class="silhouette" aria-hidden="true"><span></span></div><p>JAY<br><small>Owner / Installer</small></p></div>
-        <div><p class="eyebrow">Meet Jay</p><h2>Direct, dependable<br>technology help.</h2><p class="about-lead">You work directly with Jay from the first message through the completed task.</p><ul class="quality-list"><li>Reliable</li><li>Professional</li><li>Technology focused</li><li>Clear communication</li></ul></div>
-      </div>
-    </section>
-
     <section class="section area-section" id="area">
       <div class="shell reveal">
         <div class="section-heading"><div><p class="eyebrow">Service Area</p><h2>Across the<br>Coachella Valley.</h2></div><p>Home technology service in these local communities.</p></div>
@@ -147,10 +167,10 @@
 
     <section class="contact-section" id="contact">
       <div class="shell reveal">
-        <p class="eyebrow">Contact TaskCore</p><h2>Call or text Jay.</h2>
+        <p class="eyebrow">Contact TaskCore</p><h2>Call or text Jessie.</h2>
         <div class="contact-grid">
           <a href="tel:+14428225357"><span>Call</span><strong>(442) 822-5357</strong><b aria-hidden="true">&#8599;</b></a>
-          <a href="sms:+14428225357?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20"><span>Text</span><strong>Message Jay</strong><b aria-hidden="true">&#8599;</b></a>
+          <a href="sms:+14428225357?body=Hi%20Jessie%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20"><span>Text</span><strong>Message Jessie</strong><b aria-hidden="true">&#8599;</b></a>
           <button class="booking-trigger" type="button"><span>Book</span><strong>Appointment</strong><b aria-hidden="true">&#8599;</b></button>
           <a href="mailto:Taskcorepros@gmail.com"><span>Email</span><strong>Taskcorepros@gmail.com</strong><b aria-hidden="true">&#8599;</b></a>
         </div>
@@ -161,6 +181,6 @@
 
   <footer><div class="shell"><a class="wordmark" href="#top"><span class="logo-mark" aria-hidden="true">TC</span><span>TASKCORE</span></a><p>Home Technology Installation &amp; Support</p><p>&copy; <span id="year"></span> TaskCore</p></div></footer>
 
-  <nav class="mobile-contact-bar" aria-label="Quick contact"><a href="tel:+14428225357">Call Jay</a><a href="sms:+14428225357?body=Hi%20Jay%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jay</a></nav>
+  <nav class="mobile-contact-bar" aria-label="Quick contact"><a href="tel:+14428225357">Call Jessie</a><a href="sms:+14428225357?body=Hi%20Jessie%2C%20I%20found%20TaskCore%20and%20would%20like%20help%20with%3A%20">Text Jessie</a></nav>
 </body>
 </html>

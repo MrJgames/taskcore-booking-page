@@ -64,7 +64,14 @@ describe("POST /api/service-requests", () => {
 
   it("rejects an invalid phone number", async () => {
     const { app } = await testApp();
-    await request(app).post("/api/service-requests").send({ ...validRequest, phone: "123" }).expect(400);
+    const response = await request(app).post("/api/service-requests").send({ ...validRequest, phone: "123" }).expect(400);
+    expect(response.body.fields.phone).toContain("Please enter a valid phone number with 10 to 15 digits.");
+  });
+
+  it("returns specific guidance for a short issue description", async () => {
+    const { app } = await testApp();
+    const response = await request(app).post("/api/service-requests").send({ ...validRequest, issue: "Too short" }).expect(400);
+    expect(response.body.fields.issue).toContain("Please describe the issue using at least 10 characters.");
   });
 
   it("rejects an invalid requested arrival window", async () => {

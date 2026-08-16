@@ -5,6 +5,8 @@ TaskCore has two deliberately separate parts:
 - The existing static customer website in the repository root. It remains compatible with GitHub Pages and keeps Call Jay, Text Jay, Book Appointment, the PWA, QR assets, photo previews, and SMS fallback.
 - A small Node.js, Express, and TypeScript API in `backend/`. It validates and stores service requests and serves Jay's protected admin page.
 
+Phase 6 also adds a local-only customer direct-booking path with canonical availability, signed payment sessions, server-authoritative deposit review, Square Web Payments Sandbox fields, reconciliation, and confirmation. See `docs/CUSTOMER-BOOKING-SQUARE-WEB.md`. It has not been deployed.
+
 The customer website works without the backend. When `TASKCORE_API_URL` is blank or the API cannot be reached, the completed form offers **Text Request** and **Copy Request** so the customer does not lose their information.
 
 ## Architecture
@@ -74,7 +76,7 @@ All backend variables are documented in `backend/.env.example`:
 - `SQLITE_PATH`: local database path; defaults to `./data/taskcore.db`.
 - `ADMIN_USERNAME`: Jay's admin username.
 - `ADMIN_PASSWORD`: unique, randomly generated admin password of at least 16 characters.
-- `CORS_ORIGINS`: comma-separated allowed browser origins. Production should contain exactly `https://mrjgames.github.io`; local development can use `http://localhost:8000,http://127.0.0.1:8000`.
+- `CORS_ORIGINS`: comma-separated allowed browser origins. Production should contain exactly `https://mrjgames.github.io,https://taskcore-api-rlvr.onrender.com`; local development can use `http://localhost:8000,http://127.0.0.1:8000`.
 - `RATE_LIMIT_WINDOW_MS`: public submission rate-limit window.
 - `RATE_LIMIT_MAX`: maximum submissions per IP during the window.
 - `BODY_LIMIT`: maximum JSON body size.
@@ -129,7 +131,7 @@ Before deployment, also test the customer form from the real GitHub Pages origin
 ```javascript
 const TASKCORE_BOOKING_URL = "";
 const TASKCORE_WEBSITE_URL = "https://mrjgames.github.io/taskcore-booking-page/";
-const TASKCORE_API_URL = "";
+const TASKCORE_API_URL = "https://taskcore-api-rlvr.onrender.com";
 ```
 
 - `TASKCORE_BOOKING_URL`: when blank, Book Appointment scrolls to the service request form; otherwise it opens that URL.
@@ -164,7 +166,7 @@ Use these names and sample values. Values in angle brackets must be supplied in 
 NODE_ENV=production
 NODE_VERSION=22.16.0
 DATABASE_URL=<Render Internal Database URL from taskcore-postgres>
-CORS_ORIGINS=https://mrjgames.github.io
+CORS_ORIGINS=https://mrjgames.github.io,https://taskcore-api-rlvr.onrender.com
 ADMIN_USERNAME=jay
 ADMIN_PASSWORD=<unique randomly generated password of at least 16 characters>
 TRUST_PROXY=true
@@ -192,9 +194,29 @@ Before day 30, choose one of these paths:
 
 For future schema changes, add versioned migrations before deployment. The current startup initializer safely creates the initial table and index on an empty PostgreSQL database, but it is not a general migration system.
 
+### Production data decision
+
+Do not accept production customer requests while `taskcore-postgres` remains on the Free instance type. The preferred path is to upgrade that existing database to the smallest suitable paid Render Postgres instance before the 30-day expiration so the current records remain in place.
+
+After the upgrade:
+
+1. Confirm `/health` still reports `database: connected`.
+2. Compare the admin request count before and after the change and save one controlled status/private-note update.
+3. Confirm point-in-time recovery is available on the database's **Recovery** page.
+4. Create an on-demand logical export and retain it outside Render.
+5. Schedule a recurring export and perform a test restore before relying on the system for customer records.
+
+Paid Render Postgres includes point-in-time recovery; the recovery window is currently three days on Hobby workspaces and seven days on Pro or higher. Free databases have no backups. See [Render Postgres recovery and backups](https://render.com/docs/postgresql-backups) and [Free instance limitations](https://render.com/docs/free).
+
+### Email notification decision
+
+Automatic email notifications are deferred for the current launch. New requests are stored first and remain visible in the protected admin dashboard, while the customer-facing SMS fallback continues to work if the API is unavailable. This keeps successful request capture independent of an email vendor and avoids adding provider credentials before the database is durable.
+
+Revisit notifications after the paid database and recovery checks are complete. Any future email integration should run only after the database insert succeeds, keep provider credentials in Render environment variables, and never turn an email delivery failure into a failed customer submission.
+
 Official references: [Render Web Services](https://render.com/docs/web-services), [Render Blueprints](https://render.com/docs/blueprint-spec), and [Free instance limitations](https://render.com/docs/free).
 
-No backend has been pushed or deployed by this project update.
+Deployment remains a separate, explicitly approved step after tests and review.
 
 ## Roll back to text-message-only mode
 
