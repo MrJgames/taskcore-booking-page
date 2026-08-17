@@ -1,64 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 560" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" role="img" aria-labelledby="title desc">
   <title id="title">Coachella Valley service-area map</title>
-  <desc id="desc">A north-up simplified geographic silhouette of the Coachella Valley showing community areas, Interstate 10, Highway 111, and eleven valley communities.</desc>
+  <desc id="desc">An expanded version of the approved TaskCore map, showing communities from Whitewater and Palm Springs southeast through the Coachella Valley to the Salton Sea.</desc>
   <defs>
     <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#c9c9c4" stroke-opacity=".035"/></pattern>
-    <clipPath id="valleyClip"><path d="M102 65L255 47 344 71 448 61 550 91 656 123 760 189 778 465 716 514 621 526 548 503 486 459 420 474 371 425 327 495 231 496 184 453 138 391 73 360 42 275 58 166Z"/></clipPath>
+    <clipPath id="valleyClip"><path d="M122 89L273 70 364 91 475 80 589 110 705 143 816 193 884 243 913 392 948 488 918 542 856 570 790 562 727 530 668 544 608 509 554 526 505 485 463 537 389 531 344 489 301 506 258 456 214 429 175 382 118 358 86 286 96 178Z"/></clipPath>
+    <style>
+      text{font-family:"Segoe UI",Arial,sans-serif}.primary-label{fill:#f7f6f0;font-size:14px;font-weight:700;paint-order:stroke;stroke:#090909;stroke-width:3px}.extended-label{fill:#c9c9c4;font-size:10.5px;font-weight:650;paint-order:stroke;stroke:#090909;stroke-width:3px}.leader{fill:none;stroke:#aaa9a2;stroke-opacity:.42;stroke-width:1}.primary-pin{fill:#f1d47a;stroke:#090909;stroke-width:3}.extended-pin{fill:#aaa9a2;stroke:#090909;stroke-width:2.5}
+      @media(max-width:520px){.extended-label,.leader{display:none}.primary-label{font-size:18px;stroke-width:4px}}
+    </style>
   </defs>
-  <rect width="820" height="560" rx="16" fill="#090909"/>
-  <rect width="820" height="560" rx="16" fill="url(#grid)"/>
+  <rect width="1000" height="650" rx="16" fill="#090909"/>
+  <rect width="1000" height="650" rx="16" fill="url(#grid)"/>
 
-  <!-- Recognizable simplified valley/service-area silhouette. -->
-  <path d="M102 65L255 47 344 71 448 61 550 91 656 123 760 189 778 465 716 514 621 526 548 503 486 459 420 474 371 425 327 495 231 496 184 453 138 391 73 360 42 275 58 166Z" fill="#171715" stroke="#c7a64b" stroke-width="2"/>
+  <!-- The approved flat architectural silhouette, extended southeast. -->
+  <path d="M122 89L273 70 364 91 475 80 589 110 705 143 816 193 884 243 913 392 948 488 918 542 856 570 790 562 727 530 668 544 608 509 554 526 505 485 463 537 389 531 344 489 301 506 258 456 214 429 175 382 118 358 86 286 96 178Z" fill="#171715" stroke="#c7a64b" stroke-width="2"/>
   <g clip-path="url(#valleyClip)" stroke="#b9b8b1" stroke-opacity=".18" stroke-width="1.2">
-    <path d="M54 151L190 124 204 238 71 267Z" fill="#22221f"/>
-    <path d="M74 267L204 238 230 389 139 391 73 360 42 275Z" fill="#1c1c1a"/>
-    <path d="M190 124L321 110 329 229 204 238Z" fill="#24231e"/>
-    <path d="M204 238L329 229 347 335 230 389Z" fill="#201f1b"/>
-    <path d="M321 110L445 101 457 230 329 229Z" fill="#1e1e1b"/>
-    <path d="M329 229L457 230 477 341 347 335Z" fill="#26241d"/>
-    <path d="M445 101L566 122 570 241 457 230Z" fill="#20201d"/>
-    <path d="M457 230L570 241 578 349 477 341Z" fill="#1b1b19"/>
-    <path d="M347 335L477 341 486 459 420 474 371 425 327 495 279 495Z" fill="#24231d"/>
-    <path d="M477 341L578 349 608 481 548 503 486 459Z" fill="#211f1a"/>
-    <path d="M566 122L671 155 676 282 570 241Z" fill="#25241f"/>
-    <path d="M570 241L676 282 680 387 578 349Z" fill="#1f1f1c"/>
-    <path d="M676 282L770 317 778 465 716 514 680 387Z" fill="#25231c"/>
+    <path d="M92 170L226 140 241 253 100 277Z" fill="#22221f"/><path d="M88 277L241 253 263 411 176 382 118 358 86 286Z" fill="#1c1c1a"/>
+    <path d="M226 140L354 126 366 244 241 253Z" fill="#24231e"/><path d="M241 253L366 244 386 356 263 411Z" fill="#201f1b"/>
+    <path d="M354 126L480 118 490 246 366 244Z" fill="#1e1e1b"/><path d="M366 244L490 246 510 360 386 356Z" fill="#26241d"/>
+    <path d="M480 118L601 139 608 257 490 246Z" fill="#20201d"/><path d="M490 246L608 257 620 370 510 360Z" fill="#1b1b19"/>
+    <path d="M386 356L510 360 525 482 463 537 389 531 344 489 301 506 285 441Z" fill="#24231d"/>
+    <path d="M510 360L620 370 648 500 608 509 554 526 505 485Z" fill="#211f1a"/>
+    <path d="M601 139L713 169 718 288 608 257Z" fill="#25241f"/><path d="M608 257L718 288 728 398 620 370Z" fill="#1f1f1c"/>
+    <path d="M713 169L820 210 829 333 718 288Z" fill="#24231e"/><path d="M718 288L829 333 847 448 728 398Z" fill="#1d1d1a"/>
+    <path d="M620 370L728 398 758 522 668 544 608 509Z" fill="#25231c"/><path d="M728 398L847 448 856 570 790 562 727 530Z" fill="#201f1c"/>
+    <path d="M829 333L925 372 948 488 918 542 856 570 847 448Z" fill="#25231c"/>
   </g>
 
-  <!-- Mountain and basin context. -->
-  <path d="M43 272L77 186 111 155 142 169 176 144 208 165 235 139 270 162" fill="none" stroke="#77766f" stroke-opacity=".45" stroke-width="5"/>
-  <path d="M230 496L268 466 300 480 327 446 352 466 371 425 398 445" fill="none" stroke="#77766f" stroke-opacity=".38" stroke-width="5"/>
-  <text x="61" y="325" fill="#77766f" font-family="Segoe UI,Arial,sans-serif" font-size="11" letter-spacing="1.4" transform="rotate(-77 61 325)">SAN JACINTO MOUNTAINS</text>
+  <!-- Original mountain-line language retained. -->
+  <path d="M87 282L119 199 151 169 182 184 217 158 248 180 276 153 309 177" fill="none" stroke="#77766f" stroke-opacity=".45" stroke-width="5"/>
+  <path d="M300 506L337 478 369 492 397 458 424 478 445 438 473 460" fill="none" stroke="#77766f" stroke-opacity=".38" stroke-width="5"/>
+  <text x="104" y="334" fill="#77766f" font-size="10" letter-spacing="1.3" transform="rotate(-77 104 334)">SAN JACINTO MOUNTAINS</text>
 
-  <!-- Major corridors. -->
-  <path d="M83 154C233 134 360 146 474 171S669 221 754 256" fill="none" stroke="#aaa9a2" stroke-opacity=".7" stroke-width="3" stroke-dasharray="10 7"/>
-  <rect x="584" y="187" width="43" height="22" rx="3" fill="#111" stroke="#aaa9a2" stroke-opacity=".55"/><text x="595" y="203" fill="#c9c9c4" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="800">I-10</text>
-  <path d="M104 294C194 245 278 242 358 273S487 335 565 350 659 374 718 419" fill="none" stroke="#c7a64b" stroke-opacity=".78" stroke-width="3"/>
-  <rect x="551" y="365" width="66" height="22" rx="3" fill="#111" stroke="#c7a64b" stroke-opacity=".55"/><text x="559" y="380" fill="#f1d47a" font-family="Segoe UI,Arial,sans-serif" font-size="11" font-weight="800">HWY 111</text>
+  <!-- The same restrained road treatment, extended toward the sea. -->
+  <path d="M126 166C270 143 405 151 530 179S746 239 897 304" fill="none" stroke="#aaa9a2" stroke-opacity=".7" stroke-width="3" stroke-dasharray="10 7"/>
+  <rect x="666" y="208" width="43" height="22" rx="3" fill="#111" stroke="#aaa9a2" stroke-opacity=".55"/><text x="677" y="224" fill="#c9c9c4" font-size="12" font-weight="800">I-10</text>
+  <path d="M148 319C237 269 327 260 413 286S558 345 647 371 778 424 875 506" fill="none" stroke="#c7a64b" stroke-opacity=".78" stroke-width="3"/>
+  <rect x="650" y="383" width="66" height="22" rx="3" fill="#111" stroke="#c7a64b" stroke-opacity=".55"/><text x="658" y="398" fill="#f1d47a" font-size="11" font-weight="800">HWY 111</text>
 
-  <!-- Refined location markers and geographically relative labels. -->
-  <g fill="#f1d47a" stroke="#090909" stroke-width="3">
-    <circle cx="205" cy="113" r="5"/><circle cx="144" cy="266" r="5"/><circle cx="263" cy="246" r="5"/><circle cx="374" cy="174" r="5"/><circle cx="342" cy="305" r="5"/><circle cx="442" cy="303" r="5"/><circle cx="536" cy="255" r="5"/><circle cx="474" cy="361" r="5"/><circle cx="548" cy="416" r="5"/><circle cx="637" cy="331" r="5"/><circle cx="704" cy="405" r="5"/>
-  </g>
-  <g fill="#f7f6f0" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="700">
-    <text x="160" y="94"><tspan x="160">Desert Hot</tspan><tspan x="160" dy="17">Springs</tspan></text>
-    <text x="88" y="251">Palm Springs</text>
-    <text x="221" y="230">Cathedral City</text>
-    <text x="337" y="154">Thousand Palms</text>
-    <text x="298" y="329">Rancho Mirage</text>
-    <text x="402" y="286">Palm Desert</text>
-    <text x="500" y="237">Bermuda Dunes</text>
-    <text x="431" y="385">Indian Wells</text>
-    <text x="516" y="445">La Quinta</text>
-    <text x="616" y="314">Indio</text>
-    <text x="665" y="435">Coachella</text>
-  </g>
+  <!-- Primary cities retain the approved gold dots and white labels. -->
+  <g class="primary-pin"><circle cx="184" cy="291" r="5"/><circle cx="300" cy="269" r="5"/><circle cx="405" cy="318" r="5"/><circle cx="494" cy="315" r="5"/><circle cx="532" cy="370" r="5"/><circle cx="586" cy="420" r="5"/><circle cx="688" cy="356" r="5"/><circle cx="756" cy="415" r="5"/></g>
+  <g class="primary-label"><text x="139" y="277">Palm Springs</text><text x="260" y="253">Cathedral City</text><text x="362" y="343">Rancho Mirage</text><text x="459" y="298">Palm Desert</text><text x="492" y="394">Indian Wells</text><text x="554" y="446">La Quinta</text><text x="665" y="338">Indio</text><text x="726" y="440">Coachella</text></g>
 
-  <g font-family="Segoe UI,Arial,sans-serif">
-    <text x="28" y="34" fill="#f1d47a" font-size="13" font-weight="800" letter-spacing="2.4">COACHELLA VALLEY</text>
-    <text x="28" y="52" fill="#77766f" font-size="10" letter-spacing="1.7">PRIMARY SERVICE COMMUNITIES</text>
-    <g transform="translate(781 31)"><path d="M0 24V-7M0-7l-7 12M0-7l7 12" stroke="#f1d47a" stroke-width="2"/><text x="-5" y="42" fill="#f1d47a" font-size="12" font-weight="800">N</text></g>
-  </g>
-  <rect x="1" y="1" width="818" height="558" rx="15" fill="none" stroke="#c7a64b" stroke-opacity=".48"/>
+  <!-- New coverage uses smaller muted dots and labels in the same style. -->
+  <g class="extended-pin"><circle cx="126" cy="145" r="4"/><circle cx="252" cy="115" r="4"/><circle cx="424" cy="183" r="4"/><circle cx="552" cy="236" r="4"/><circle cx="632" cy="168" r="4"/><circle cx="696" cy="432" r="4"/><circle cx="750" cy="470" r="4"/><circle cx="796" cy="505" r="4"/><circle cx="876" cy="488" r="4"/><circle cx="843" cy="548" r="4"/></g>
+  <g class="leader"><path d="M126 145l-25-20"/><path d="M252 115l-5-21"/><path d="M424 183l-5-22"/><path d="M552 236l20-19"/><path d="M632 168l27-20"/><path d="M696 432l14 18"/><path d="M750 470l14 18"/><path d="M796 505l14 15"/><path d="M876 488l19-15"/><path d="M843 548l-20 17"/></g>
+  <g class="extended-label"><text x="49" y="121">WHITEWATER</text><text x="205" y="86">DESERT HOT SPRINGS</text><text x="372" y="153">THOUSAND PALMS</text><text x="572" y="214">BERMUDA DUNES</text><text x="660" y="145">SKY VALLEY</text><text x="710" y="459">THERMAL</text><text x="765" y="495">MECCA</text><text x="810" y="527">OASIS</text><text x="896" y="472">NORTH SHORE</text><text x="762" y="577">SALTON CITY</text></g>
+
+  <!-- Subtle partial sea context, without changing the approved palette. -->
+  <path d="M850 515C884 500 921 508 951 536 972 557 987 588 1005 622V660H832C835 621 839 577 850 515Z" fill="#22282a" stroke="#777f82" stroke-opacity=".55" stroke-width="1.5"/>
+  <path d="M859 541C896 527 929 540 963 568M845 577C891 561 936 578 982 615" fill="none" stroke="#c9c9c4" stroke-opacity=".12"/>
+  <text x="878" y="608" fill="#909799" font-size="11" font-weight="700" letter-spacing="1.8">SALTON SEA</text>
+
+  <g><text x="28" y="34" fill="#f1d47a" font-size="13" font-weight="800" letter-spacing="2.4">COACHELLA VALLEY</text><text x="28" y="52" fill="#77766f" font-size="10" letter-spacing="1.7">PRIMARY SERVICE COMMUNITIES</text><g transform="translate(961 31)"><path d="M0 24V-7M0-7l-7 12M0-7l7 12" stroke="#f1d47a" stroke-width="2"/><text x="-5" y="42" fill="#f1d47a" font-size="12" font-weight="800">N</text></g></g>
+  <rect x="1" y="1" width="998" height="648" rx="15" fill="none" stroke="#c7a64b" stroke-opacity=".48"/>
 </svg>
