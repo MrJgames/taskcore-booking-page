@@ -1,5 +1,5 @@
-const CACHE_NAME = "taskcore-v10-20260817-final-design";
-const STATIC_ASSETS = ["./", "./index.html", "./styles.css?v=20260817-1", "./public-stats.js?v=20260816-1", "./script.js?v=20260816-3", "./manifest.json", "./assets/taskcore-logo.png", "./assets/coachella-valley-map.svg", "./assets/favicon.svg", "./assets/icons/icon-192.png", "./assets/icons/icon-512.png", "./assets/icons/icon-maskable-512.png", "./assets/icons/apple-touch-icon.png"];
+const CACHE_NAME = "taskcore-v11-20260818-branded-icons";
+const STATIC_ASSETS = ["./", "./index.html", "./styles.css?v=20260817-1", "./public-stats.js?v=20260816-1", "./script.js?v=20260816-3", "./manifest.json?v=20260818-1", "./assets/taskcore-logo.png", "./assets/coachella-valley-map.svg", "./favicon.ico?v=20260818-1", "./assets/icons/taskcore-favicon-16.png?v=20260818-1", "./assets/icons/taskcore-favicon-32.png?v=20260818-1", "./assets/icons/taskcore-favicon-48.png?v=20260818-1", "./assets/icons/taskcore-apple-touch-icon.png?v=20260818-1", "./assets/icons/taskcore-icon-192.png", "./assets/icons/taskcore-icon-512.png", "./assets/icons/taskcore-icon-maskable-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()));
