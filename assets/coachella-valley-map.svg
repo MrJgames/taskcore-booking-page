@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 560" role="img" aria-labelledby="title desc">
+  <title id="title">Coachella Valley service-area map</title>
+  <desc id="desc">A north-up simplified geographic silhouette of the Coachella Valley showing community areas, Interstate 10, Highway 111, and eleven valley communities.</desc>
+  <defs>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#c9c9c4" stroke-opacity=".035"/></pattern>
+    <clipPath id="valleyClip"><path d="M102 65L255 47 344 71 448 61 550 91 656 123 760 189 778 465 716 514 621 526 548 503 486 459 420 474 371 425 327 495 231 496 184 453 138 391 73 360 42 275 58 166Z"/></clipPath>
+  </defs>
+  <rect width="820" height="560" rx="16" fill="#090909"/>
+  <rect width="820" height="560" rx="16" fill="url(#grid)"/>
+
+  <!-- Recognizable simplified valley/service-area silhouette. -->
+  <path d="M102 65L255 47 344 71 448 61 550 91 656 123 760 189 778 465 716 514 621 526 548 503 486 459 420 474 371 425 327 495 231 496 184 453 138 391 73 360 42 275 58 166Z" fill="#171715" stroke="#c7a64b" stroke-width="2"/>
+  <g clip-path="url(#valleyClip)" stroke="#b9b8b1" stroke-opacity=".18" stroke-width="1.2">
+    <path d="M54 151L190 124 204 238 71 267Z" fill="#22221f"/>
+    <path d="M74 267L204 238 230 389 139 391 73 360 42 275Z" fill="#1c1c1a"/>
+    <path d="M190 124L321 110 329 229 204 238Z" fill="#24231e"/>
+    <path d="M204 238L329 229 347 335 230 389Z" fill="#201f1b"/>
+    <path d="M321 110L445 101 457 230 329 229Z" fill="#1e1e1b"/>
+    <path d="M329 229L457 230 477 341 347 335Z" fill="#26241d"/>
+    <path d="M445 101L566 122 570 241 457 230Z" fill="#20201d"/>
+    <path d="M457 230L570 241 578 349 477 341Z" fill="#1b1b19"/>
+    <path d="M347 335L477 341 486 459 420 474 371 425 327 495 279 495Z" fill="#24231d"/>
+    <path d="M477 341L578 349 608 481 548 503 486 459Z" fill="#211f1a"/>
+    <path d="M566 122L671 155 676 282 570 241Z" fill="#25241f"/>
+    <path d="M570 241L676 282 680 387 578 349Z" fill="#1f1f1c"/>
+    <path d="M676 282L770 317 778 465 716 514 680 387Z" fill="#25231c"/>
+  </g>
+
+  <!-- Mountain and basin context. -->
+  <path d="M43 272L77 186 111 155 142 169 176 144 208 165 235 139 270 162" fill="none" stroke="#77766f" stroke-opacity=".45" stroke-width="5"/>
+  <path d="M230 496L268 466 300 480 327 446 352 466 371 425 398 445" fill="none" stroke="#77766f" stroke-opacity=".38" stroke-width="5"/>
+  <text x="61" y="325" fill="#77766f" font-family="Segoe UI,Arial,sans-serif" font-size="11" letter-spacing="1.4" transform="rotate(-77 61 325)">SAN JACINTO MOUNTAINS</text>
+
+  <!-- Major corridors. -->
+  <path d="M83 154C233 134 360 146 474 171S669 221 754 256" fill="none" stroke="#aaa9a2" stroke-opacity=".7" stroke-width="3" stroke-dasharray="10 7"/>
+  <rect x="584" y="187" width="43" height="22" rx="3" fill="#111" stroke="#aaa9a2" stroke-opacity=".55"/><text x="595" y="203" fill="#c9c9c4" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="800">I-10</text>
+  <path d="M104 294C194 245 278 242 358 273S487 335 565 350 659 374 718 419" fill="none" stroke="#c7a64b" stroke-opacity=".78" stroke-width="3"/>
+  <rect x="551" y="365" width="66" height="22" rx="3" fill="#111" stroke="#c7a64b" stroke-opacity=".55"/><text x="559" y="380" fill="#f1d47a" font-family="Segoe UI,Arial,sans-serif" font-size="11" font-weight="800">HWY 111</text>
+
+  <!-- Refined location markers and geographically relative labels. -->
+  <g fill="#f1d47a" stroke="#090909" stroke-width="3">
+    <circle cx="205" cy="113" r="5"/><circle cx="144" cy="266" r="5"/><circle cx="263" cy="246" r="5"/><circle cx="374" cy="174" r="5"/><circle cx="342" cy="305" r="5"/><circle cx="442" cy="303" r="5"/><circle cx="536" cy="255" r="5"/><circle cx="474" cy="361" r="5"/><circle cx="548" cy="416" r="5"/><circle cx="637" cy="331" r="5"/><circle cx="704" cy="405" r="5"/>
+  </g>
+  <g fill="#f7f6f0" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="700">
+    <text x="160" y="94"><tspan x="160">Desert Hot</tspan><tspan x="160" dy="17">Springs</tspan></text>
+    <text x="88" y="251">Palm Springs</text>
+    <text x="221" y="230">Cathedral City</text>
+    <text x="337" y="154">Thousand Palms</text>
+    <text x="298" y="329">Rancho Mirage</text>
+    <text x="402" y="286">Palm Desert</text>
+    <text x="500" y="237">Bermuda Dunes</text>
+    <text x="431" y="385">Indian Wells</text>
+    <text x="516" y="445">La Quinta</text>
+    <text x="616" y="314">Indio</text>
+    <text x="665" y="435">Coachella</text>
+  </g>
+
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <text x="28" y="34" fill="#f1d47a" font-size="13" font-weight="800" letter-spacing="2.4">COACHELLA VALLEY</text>
+    <text x="28" y="52" fill="#77766f" font-size="10" letter-spacing="1.7">PRIMARY SERVICE COMMUNITIES</text>
+    <g transform="translate(781 31)"><path d="M0 24V-7M0-7l-7 12M0-7l7 12" stroke="#f1d47a" stroke-width="2"/><text x="-5" y="42" fill="#f1d47a" font-size="12" font-weight="800">N</text></g>
+  </g>
+  <rect x="1" y="1" width="818" height="558" rx="15" fill="none" stroke="#c7a64b" stroke-opacity=".48"/>
+</svg>
