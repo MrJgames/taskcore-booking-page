@@ -55,3 +55,6 @@
 /* Public Google Calendar appointment links. */
 .booking-cta{box-shadow:0 10px 30px rgba(199,166,75,.2)}.contact-methods .booking-method{border-bottom-color:rgba(241,212,122,.65)}.contact-methods .booking-method span,.contact-methods .booking-method b{color:var(--gold2)}
 @media(max-width:600px){.mobile-contact-bar{grid-template-columns:repeat(3,minmax(0,1fr))}.mobile-contact-bar a{padding-inline:4px;font-size:11px}.mobile-contact-bar .mobile-book{border:1px solid var(--gold);color:var(--gold2)}}
+
+/* Keep the hero service title inside its card as the desktop grid narrows. */
+.hero-card{min-width:0}.hero-card h2{max-width:100%;font-size:clamp(1.05rem,1.25vw,1.2rem);line-height:1.1}.hero-card h2 span{max-width:100%;white-space:normal;overflow-wrap:normal}
