@@ -1,17 +1,29 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-DLQ40NYPEL"></script>
+  <!-- Google tag (gtag.js) with Consent Mode defaults -->
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      wait_for_update: 500
+    });
+    try {
+      if (localStorage.getItem('taskcore.analytics-consent.v1') === 'accepted') {
+        gtag('consent', 'update', { analytics_storage: 'granted' });
+      }
+    } catch (_) {}
     gtag('js', new Date());
-    gtag('config', 'G-DLQ40NYPEL');
+    gtag('config', 'G-DLQ4ONYPEL');
   </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-DLQ4ONYPEL"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-pbLtc/na9wzWk0l4M67HjOT0VfjxkspP2U2P/IJgG30=' https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; img-src 'self' data: https://*.google-analytics.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-AY7bEWjc1EFRjW52xhASqYX5qmzvo/fd9pSnPyD1Yl4=' https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; img-src 'self' data: https://*.google-analytics.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
   <meta name="theme-color" content="#080808">
   <meta name="description" content="TaskCore provides handyman, home repair, installation, and home technology support throughout the Coachella Valley.">
   <meta name="robots" content="index, follow">
@@ -33,9 +45,9 @@
   <link rel="icon" href="assets/icons/taskcore-favicon-32.png?v=20260818-1" type="image/png" sizes="32x32">
   <link rel="icon" href="assets/icons/taskcore-favicon-48.png?v=20260818-1" type="image/png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/icons/taskcore-apple-touch-icon.png?v=20260818-1" sizes="180x180">
-  <link rel="stylesheet" href="styles.css?v=20260821-1">
+  <link rel="stylesheet" href="styles.css?v=20260821-2">
   <script src="public-stats.js?v=20260816-1" defer></script>
-  <script src="script.js?v=20260820-1" defer></script>
+  <script src="script.js?v=20260821-2" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
@@ -113,7 +125,11 @@
       </div>
     </section>
   </main>
-  <footer class="site-footer"><div class="shell footer-layout"><a class="brand" href="#top" aria-label="TaskCore home"><img class="brand-logo footer-logo" src="assets/taskcore-logo.png" alt="TaskCore - Handyman and Home Technology Services"></a><div><p><a href="tel:+14428225367">(442) 822-5367</a></p><p><a href="mailto:service@taskcorepros.com">service@taskcorepros.com</a></p></div><div><p>taskcorepros.com</p><p>Coachella Valley &amp; Surrounding Areas</p></div><p class="copyright">&copy; <span id="year"></span> TaskCore</p></div></footer>
+  <footer class="site-footer"><div class="shell footer-layout"><a class="brand" href="#top" aria-label="TaskCore home"><img class="brand-logo footer-logo" src="assets/taskcore-logo.png" alt="TaskCore - Handyman and Home Technology Services"></a><div><p><a href="tel:+14428225367">(442) 822-5367</a></p><p><a href="mailto:service@taskcorepros.com">service@taskcorepros.com</a></p></div><div><p>taskcorepros.com</p><p>Coachella Valley &amp; Surrounding Areas</p><p><button class="consent-settings" id="consent-settings" type="button">Privacy choices</button></p></div><p class="copyright">&copy; <span id="year"></span> TaskCore</p></div></footer>
+  <section class="consent-banner" id="analytics-consent-banner" aria-labelledby="consent-title" aria-describedby="consent-description" hidden>
+    <div class="consent-copy"><p class="card-kicker">YOUR PRIVACY</p><h2 id="consent-title">Analytics preferences</h2><p id="consent-description">TaskCore uses optional Google Analytics to understand general website usage and improve the site. You can accept or decline analytics. Advertising storage remains disabled.</p></div>
+    <div class="consent-actions"><button class="button button-gold" id="consent-accept" type="button">Accept</button><button class="button button-silver" id="consent-decline" type="button">Decline</button></div>
+  </section>
   <nav class="mobile-contact-bar" aria-label="Quick contact"><a href="tel:+14428225367">Call Now</a><a href="sms:+14428225367?body=Hi%20TaskCore%2C%20I%20need%20help%20with%3A%20">Text Us</a><a class="mobile-book" href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ18SOLp7MgcWpvlEAZz-NavX5VRvFbWj31rT61iXbZAkW0aKw8fqcosDjDYFwQ2p_tWqdCODR7W" target="_blank" rel="noopener noreferrer" aria-label="Book an appointment with TaskCore (opens in a new tab)">Book</a></nav>
 </body>
 </html>

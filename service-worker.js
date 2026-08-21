@@ -1,5 +1,5 @@
-const CACHE_NAME = "taskcore-v13-20260821-service-card";
-const STATIC_ASSETS = ["./", "./index.html", "./styles.css?v=20260821-1", "./public-stats.js?v=20260816-1", "./script.js?v=20260820-1", "./manifest.json?v=20260818-1", "./assets/taskcore-logo.png", "./assets/coachella-valley-map.svg", "./favicon.ico?v=20260818-1", "./assets/icons/taskcore-favicon-16.png?v=20260818-1", "./assets/icons/taskcore-favicon-32.png?v=20260818-1", "./assets/icons/taskcore-favicon-48.png?v=20260818-1", "./assets/icons/taskcore-apple-touch-icon.png?v=20260818-1", "./assets/icons/taskcore-icon-192.png", "./assets/icons/taskcore-icon-512.png", "./assets/icons/taskcore-icon-maskable-512.png"];
+const CACHE_NAME = "taskcore-v14-20260821-analytics-consent";
+const STATIC_ASSETS = ["./", "./index.html", "./styles.css?v=20260821-2", "./public-stats.js?v=20260816-1", "./script.js?v=20260821-2", "./manifest.json?v=20260818-1", "./assets/taskcore-logo.png", "./assets/coachella-valley-map.svg", "./favicon.ico?v=20260818-1", "./assets/icons/taskcore-favicon-16.png?v=20260818-1", "./assets/icons/taskcore-favicon-32.png?v=20260818-1", "./assets/icons/taskcore-favicon-48.png?v=20260818-1", "./assets/icons/taskcore-apple-touch-icon.png?v=20260818-1", "./assets/icons/taskcore-icon-192.png", "./assets/icons/taskcore-icon-512.png", "./assets/icons/taskcore-icon-maskable-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()));
