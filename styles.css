@@ -51,3 +51,7 @@
 @media(min-width:1101px){.area-panel{grid-template-columns:minmax(330px,.65fr) minmax(0,1.35fr);gap:46px;padding:46px}.valley-map{width:100%}}
 @media(max-width:900px){.area-copy>p:last-child{max-width:650px}.valley-map{max-width:820px}}
 @media(max-width:600px){.area-copy h2{font-size:clamp(1.72rem,8.1vw,2rem)}.area-copy>p:last-child{font-size:14px;line-height:1.65}.valley-map img{aspect-ratio:1000/650;box-shadow:0 18px 45px rgba(0,0,0,.46)}.map-markets{margin-top:13px}}
+
+/* Public Google Calendar appointment links. */
+.booking-cta{box-shadow:0 10px 30px rgba(199,166,75,.2)}.contact-methods .booking-method{border-bottom-color:rgba(241,212,122,.65)}.contact-methods .booking-method span,.contact-methods .booking-method b{color:var(--gold2)}
+@media(max-width:600px){.mobile-contact-bar{grid-template-columns:repeat(3,minmax(0,1fr))}.mobile-contact-bar a{padding-inline:4px;font-size:11px}.mobile-contact-bar .mobile-book{border:1px solid var(--gold);color:var(--gold2)}}
