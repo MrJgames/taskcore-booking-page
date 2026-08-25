@@ -4,6 +4,7 @@ TaskCore has two deliberately separate parts:
 
 - The existing static customer website in the repository root. It remains compatible with GitHub Pages and keeps Call Jay, Text Jay, Book Appointment, the PWA, QR assets, photo previews, and SMS fallback.
 - A small Node.js, Express, and TypeScript API in `backend/`. It validates and stores service requests and serves Jay's protected admin page.
+- A mobile inspection portal in the same backend. Technicians submit checklists, required photos, walkthrough video, and maintenance findings to the owner review queue. Only the owner can add quotes and publish a secure client report.
 
 The customer website works without the backend. When `TASKCORE_API_URL` is blank or the API cannot be reached, the completed form offers **Text Request** and **Copy Request** so the customer does not lose their information.
 
@@ -107,6 +108,18 @@ New requests are listed first in the admin page.
 - `GET /admin/` — protected admin page.
 
 Admin routes use environment-configured HTTP Basic authentication. Production must use HTTPS so credentials and customer data are encrypted in transit.
+
+## Property inspection portal
+
+- `/tech/` is the phone-friendly technician portal. Technician accounts are created from the protected admin dashboard.
+- `/admin/` contains inspection setup, the unread review queue, owner notes, repair pricing, and the publish control.
+- `/report/<secure-token>` is the expiring client report. The client can approve or decline each quoted repair separately and leave a comment.
+
+The workflow is deliberately gated: `Draft → Submitted → Ready → Published`. A technician submission is never sent directly to a client. The owner can return it for changes or review every maintenance finding, set the repair scope and price, and then publish it. Client decisions are stored both as the current decision and as an append-only decision history.
+
+Inspection media uses local storage only during development. Production startup requires `MEDIA_STORAGE_MODE=s3` plus an S3-compatible bucket, because Render's normal local filesystem is not durable. Files are private and are proxied only through authenticated admin routes or a valid, unexpired report token.
+
+Dashboard alerts are always created when a technician submits an inspection or a client makes a repair decision. Add the optional Twilio variables to also text the owner. Add the optional Resend variables to email a published report link directly to the client; without them, the dashboard provides a secure link that can be copied and sent manually.
 
 ## Testing and builds
 

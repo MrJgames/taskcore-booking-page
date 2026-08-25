@@ -26,6 +26,36 @@ services:
         sync: false
       - key: TRUST_PROXY
         value: "true"
+      - key: PUBLIC_BASE_URL
+        value: https://taskcore-api-rlvr.onrender.com
+      - key: REPORT_TOKEN_DAYS
+        value: "30"
+      - key: MEDIA_STORAGE_MODE
+        value: s3
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_FORCE_PATH_STYLE
+        value: "false"
+      - key: OWNER_MOBILE_NUMBER
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: REPORT_FROM_EMAIL
+        sync: false
 
 databases:
   - name: taskcore-postgres

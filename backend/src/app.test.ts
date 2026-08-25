@@ -1,8 +1,11 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
+import { Kysely, PostgresDialect } from "kysely";
+import { newDb } from "pg-mem";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
-import { createDatabase, initializeDatabase } from "./database.js";
+import { initializeDatabase } from "./database.js";
+import type { TaskCoreDatabase } from "./types.js";
 
 const futureServiceDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -18,19 +21,21 @@ const validRequest = {
   submissionTimestamp: "2026-07-20T18:00:00.000Z"
 };
 
-const openDatabases: ReturnType<typeof createDatabase>[] = [];
+const openDatabases: Kysely<TaskCoreDatabase>[] = [];
 
 async function testApp(rateLimitMax = 20) {
+  const memoryPostgres = newDb({ noAstCoverageCheck: true });
+  const adapter = memoryPostgres.adapters.createPg();
   const config = loadConfig({
     nodeEnv: "test",
-    sqlitePath: ":memory:",
+    databaseUrl: "postgresql://test",
     adminUsername: "jay",
     adminPassword: "test-password-long-enough",
     corsOrigins: ["http://localhost:8000"],
     rateLimitWindowMs: 60_000,
     rateLimitMax
   });
-  const db = createDatabase(config);
+  const db = new Kysely<TaskCoreDatabase>({ dialect: new PostgresDialect({ pool: new adapter.Pool() }) });
   openDatabases.push(db);
   await initializeDatabase(db);
   return { app: createApp(config, db), auth: "Basic " + Buffer.from("jay:test-password-long-enough").toString("base64") };

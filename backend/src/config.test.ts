@@ -11,7 +11,12 @@ describe("production database configuration", () => {
     const config = loadConfig({
       ...secureAdmin,
       nodeEnv: "production",
-      databaseUrl: "postgresql://internal-host/taskcore"
+      databaseUrl: "postgresql://internal-host/taskcore",
+      publicBaseUrl: "https://api.taskcorepros.com",
+      mediaStorageMode: "s3",
+      s3Bucket: "taskcore-inspections",
+      s3AccessKeyId: "test-access-key",
+      s3SecretAccessKey: "test-secret-key"
     });
     expect(() => assertProductionConfig(config)).not.toThrow();
   });

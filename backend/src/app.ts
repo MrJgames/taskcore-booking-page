@@ -9,6 +9,7 @@ import type { AppConfig } from "./config.js";
 import { createAdminAuth } from "./auth.js";
 import type { TaskCoreDatabase } from "./types.js";
 import { adminUpdateSchema, serviceRequestSchema } from "./validation.js";
+import { registerInspectionRoutes } from "./inspections.js";
 
 const adminDirectory = fileURLToPath(new URL("../public/", import.meta.url));
 
@@ -58,7 +59,7 @@ export function createApp(config: AppConfig, db: Kysely<TaskCoreDatabase>) {
       callback(new Error("Origin not allowed."));
     },
     methods: ["GET", "POST", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-File-Name"]
   }));
   app.use(express.json({ limit: config.bodyLimit, strict: true }));
 
@@ -165,6 +166,8 @@ export function createApp(config: AppConfig, db: Kysely<TaskCoreDatabase>) {
   });
 
   app.use("/admin", adminAuth, express.static(adminDirectory, { index: "index.html", dotfiles: "deny" }));
+
+  registerInspectionRoutes(app, config, db);
 
   app.use((_request, response) => response.status(404).json({ error: "Not found." }));
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {

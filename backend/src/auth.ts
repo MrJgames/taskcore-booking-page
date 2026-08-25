@@ -1,6 +1,8 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { RequestHandler } from "express";
+import type { Kysely } from "kysely";
 import type { AppConfig } from "./config.js";
+import type { TaskCoreDatabase } from "./types.js";
 
 function safelyEqual(actual: string, expected: string): boolean {
   const actualBuffer = Buffer.from(actual);
@@ -36,5 +38,65 @@ export function createAdminAuth(config: AppConfig): RequestHandler {
       return;
     }
     next();
+  };
+}
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  const [salt, expectedHex] = stored.split(":");
+  if (!salt || !expectedHex) return false;
+  const actual = scryptSync(password, salt, 64);
+  const expected = Buffer.from(expectedHex, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export function createOpaqueToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function cookieValue(header: string | undefined, name: string): string | undefined {
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(value.join("="));
+  }
+  return undefined;
+}
+
+export type TechnicianRequest = Parameters<RequestHandler>[0] & { technician?: { id: string; name: string; email: string } };
+
+export function createTechnicianAuth(db: Kysely<TaskCoreDatabase>): RequestHandler {
+  return async (request: TechnicianRequest, response, next) => {
+    try {
+      const token = cookieValue(request.get("cookie"), "taskcore_tech_session");
+      if (!token) {
+        response.status(401).json({ error: "Technician sign-in is required." });
+        return;
+      }
+      const now = new Date().toISOString();
+      const row = await db.selectFrom("technician_sessions")
+        .innerJoin("technicians", "technicians.id", "technician_sessions.technician_id")
+        .select(["technicians.id", "technicians.name", "technicians.email"])
+        .where("technician_sessions.token_hash", "=", hashToken(token))
+        .where("technician_sessions.expires_at", ">", now)
+        .where("technicians.active", "=", 1)
+        .executeTakeFirst();
+      if (!row) {
+        response.status(401).json({ error: "Your technician session has expired." });
+        return;
+      }
+      request.technician = row;
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
 }

@@ -13,6 +13,24 @@ export interface AppConfig {
   rateLimitMax: number;
   bodyLimit: string;
   trustProxy: boolean;
+  uploadDirectory: string;
+  maxPhotoBytes: number;
+  maxVideoBytes: number;
+  publicBaseUrl: string;
+  reportTokenDays: number;
+  ownerMobileNumber?: string;
+  twilioAccountSid?: string;
+  twilioAuthToken?: string;
+  twilioFromNumber?: string;
+  resendApiKey?: string;
+  reportFromEmail?: string;
+  mediaStorageMode: "local" | "s3";
+  s3Endpoint?: string;
+  s3Region: string;
+  s3Bucket?: string;
+  s3AccessKeyId?: string;
+  s3SecretAccessKey?: string;
+  s3ForcePathStyle: boolean;
 }
 
 function positiveInteger(value: string | undefined, fallback: number): number {
@@ -36,7 +54,25 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     rateLimitWindowMs: positiveInteger(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     rateLimitMax: positiveInteger(process.env.RATE_LIMIT_MAX, 5),
     bodyLimit: process.env.BODY_LIMIT || "32kb",
-    trustProxy: process.env.TRUST_PROXY === "true"
+    trustProxy: process.env.TRUST_PROXY === "true",
+    uploadDirectory: path.resolve(process.cwd(), process.env.UPLOAD_DIRECTORY || "./data/inspection-media"),
+    maxPhotoBytes: positiveInteger(process.env.MAX_PHOTO_BYTES, 15 * 1024 * 1024),
+    maxVideoBytes: positiveInteger(process.env.MAX_VIDEO_BYTES, 250 * 1024 * 1024),
+    publicBaseUrl: (process.env.PUBLIC_BASE_URL || "http://localhost:3000").replace(/\/$/, ""),
+    reportTokenDays: positiveInteger(process.env.REPORT_TOKEN_DAYS, 30),
+    ownerMobileNumber: process.env.OWNER_MOBILE_NUMBER?.trim() || undefined,
+    twilioAccountSid: process.env.TWILIO_ACCOUNT_SID?.trim() || undefined,
+    twilioAuthToken: process.env.TWILIO_AUTH_TOKEN?.trim() || undefined,
+    twilioFromNumber: process.env.TWILIO_FROM_NUMBER?.trim() || undefined,
+    resendApiKey: process.env.RESEND_API_KEY?.trim() || undefined,
+    reportFromEmail: process.env.REPORT_FROM_EMAIL?.trim() || undefined,
+    mediaStorageMode: process.env.MEDIA_STORAGE_MODE === "s3" ? "s3" : "local",
+    s3Endpoint: process.env.S3_ENDPOINT?.trim() || undefined,
+    s3Region: process.env.S3_REGION?.trim() || "auto",
+    s3Bucket: process.env.S3_BUCKET?.trim() || undefined,
+    s3AccessKeyId: process.env.S3_ACCESS_KEY_ID?.trim() || undefined,
+    s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY?.trim() || undefined,
+    s3ForcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true"
   };
   return { ...config, ...overrides };
 }
@@ -50,5 +86,14 @@ export function assertProductionConfig(config: AppConfig): void {
   }
   if (config.nodeEnv === "production" && !config.databaseUrl) {
     throw new Error("DATABASE_URL is required in production. SQLite is for local development only.");
+  }
+  if (config.nodeEnv === "production" && !config.publicBaseUrl.startsWith("https://")) {
+    throw new Error("PUBLIC_BASE_URL must use HTTPS in production.");
+  }
+  if (config.nodeEnv === "production" && config.mediaStorageMode !== "s3") {
+    throw new Error("MEDIA_STORAGE_MODE=s3 is required in production so inspection evidence is durable.");
+  }
+  if (config.mediaStorageMode === "s3" && (!config.s3Bucket || !config.s3AccessKeyId || !config.s3SecretAccessKey)) {
+    throw new Error("S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY are required for S3 media storage.");
   }
 }
