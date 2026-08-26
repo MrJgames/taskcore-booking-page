@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -13,6 +14,7 @@ import { clientSchema, createInspectionSchema, findingDecisionSchema, inspection
 
 const techDirectory = fileURLToPath(new URL("../public/tech/", import.meta.url));
 const publicDirectory = fileURLToPath(new URL("../public/", import.meta.url));
+const techIndex = path.join(techDirectory, "index.html");
 const requiredPhotoCategories = ["entry", "thermostat", "kitchen", "bathroom"];
 
 function routeParam(request: express.Request, name: string): string {
@@ -66,7 +68,10 @@ async function inspectionForReportToken(db: Kysely<TaskCoreDatabase>, token: str
 }
 
 export function registerInspectionRoutes(app: express.Express, config: AppConfig, db: Kysely<TaskCoreDatabase>) {
-  app.use("/tech", express.static(techDirectory, { index: "index.html", dotfiles: "deny" }));
+  app.get(["/tech", "/tech/"], (_request, response, next) => {
+    response.sendFile(techIndex, { dotfiles: "deny" }, (error) => error ? next(error) : undefined);
+  });
+  app.use("/tech", express.static(techDirectory, { index: false, dotfiles: "deny" }));
   app.use("/report-assets", express.static(publicDirectory, { index: false, dotfiles: "deny" }));
 
   const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many sign-in attempts. Wait and try again." } });

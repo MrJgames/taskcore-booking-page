@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
@@ -12,6 +13,7 @@ import { adminUpdateSchema, serviceRequestSchema } from "./validation.js";
 import { registerInspectionRoutes } from "./inspections.js";
 
 const adminDirectory = fileURLToPath(new URL("../public/", import.meta.url));
+const adminIndex = path.join(adminDirectory, "index.html");
 
 function publicRequest(row: Record<string, unknown>) {
   return {
@@ -165,7 +167,10 @@ export function createApp(config: AppConfig, db: Kysely<TaskCoreDatabase>) {
     }
   });
 
-  app.use("/admin", adminAuth, express.static(adminDirectory, { index: "index.html", dotfiles: "deny" }));
+  app.get(["/admin", "/admin/"], adminAuth, (_request, response, next) => {
+    response.sendFile(adminIndex, { dotfiles: "deny" }, (error) => error ? next(error) : undefined);
+  });
+  app.use("/admin", adminAuth, express.static(adminDirectory, { index: false, dotfiles: "deny" }));
 
   registerInspectionRoutes(app, config, db);
 

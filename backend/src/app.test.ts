@@ -91,6 +91,21 @@ describe("admin request management", () => {
     await request(app).get("/admin/").expect(401);
   });
 
+  it("serves the protected admin index and its relative assets", async () => {
+    const { app, auth } = await testApp();
+    await request(app).get("/admin/").set("Authorization", auth).expect("Content-Type", /html/).expect(/TaskCore Admin/).expect(200);
+    await request(app).get("/admin/admin.css").set("Authorization", auth).expect("Content-Type", /css/).expect(200);
+    await request(app).get("/admin/admin.js").set("Authorization", auth).expect("Content-Type", /javascript/).expect(200);
+    await request(app).get("/admin/inspection-admin.js").set("Authorization", auth).expect("Content-Type", /javascript/).expect(200);
+  });
+
+  it("serves the technician index and its relative assets", async () => {
+    const { app } = await testApp();
+    await request(app).get("/tech/").expect("Content-Type", /html/).expect(/Technician sign in/).expect(200);
+    await request(app).get("/tech/tech.css").expect("Content-Type", /css/).expect(200);
+    await request(app).get("/tech/tech.js").expect("Content-Type", /javascript/).expect(200);
+  });
+
   it("completes the submission, listing, and status update flow", async () => {
     const { app, auth } = await testApp();
     const created = await request(app).post("/api/service-requests").send(validRequest).expect(201);
