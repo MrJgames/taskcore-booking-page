@@ -95,6 +95,7 @@ describe("admin request management", () => {
     const { app, auth } = await testApp();
     await request(app).get("/admin/").set("Authorization", auth).expect("Content-Type", /html/).expect(/TaskCore Admin/).expect(200);
     await request(app).get("/admin/admin.css").set("Authorization", auth).expect("Content-Type", /css/).expect(200);
+    await request(app).get("/admin/property-admin.css").set("Authorization", auth).expect("Content-Type", /css/).expect(200);
     await request(app).get("/admin/admin.js").set("Authorization", auth).expect("Content-Type", /javascript/).expect(200);
     await request(app).get("/admin/inspection-admin.js").set("Authorization", auth).expect("Content-Type", /javascript/).expect(200);
   });
@@ -103,6 +104,7 @@ describe("admin request management", () => {
     const { app } = await testApp();
     await request(app).get("/tech/").expect("Content-Type", /html/).expect(/Technician sign in/).expect(200);
     await request(app).get("/tech/tech.css").expect("Content-Type", /css/).expect(200);
+    await request(app).get("/tech/property.css").expect("Content-Type", /css/).expect(200);
     await request(app).get("/tech/tech.js").expect("Content-Type", /javascript/).expect(200);
   });
 

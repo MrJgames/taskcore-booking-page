@@ -1,0 +1,1 @@
+.address-grid{display:grid;grid-template-columns:2fr 80px 120px;gap:10px}.panel>p{margin:6px 0 0}@media(max-width:620px){.address-grid{grid-template-columns:1fr}}

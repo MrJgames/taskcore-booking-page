@@ -10,7 +10,7 @@ import { createOpaqueToken, createTechnicianAuth, hashPassword, hashToken, type 
 import { deleteMedia, persistMedia, receiveUpload, sendMedia, stagedMediaPath, uploadExtension } from "./media.js";
 import { sendClientReportEmail, sendOwnerReviewText } from "./notifications.js";
 import type { TaskCoreDatabase } from "./types.js";
-import { clientSchema, createInspectionSchema, findingDecisionSchema, inspectionDraftSchema, inspectionReviewSchema, propertySchema, technicianLoginSchema, technicianSchema } from "./validation.js";
+import { clientSchema, createInspectionSchema, findingDecisionSchema, inspectionDraftSchema, inspectionReviewSchema, ownerPropertyUpdateSchema, propertyMergeSchema, propertySchema, technicianLoginSchema, technicianPropertySchema, technicianSchema } from "./validation.js";
 
 const techDirectory = fileURLToPath(new URL("../public/tech/", import.meta.url));
 const publicDirectory = fileURLToPath(new URL("../public/", import.meta.url));
@@ -32,6 +32,17 @@ function cents(value: number | null): number | null {
 
 function dollars(value: number | null): string {
   return value === null ? "Pending quote" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value / 100);
+}
+
+function normalizeAddress(value: string): string {
+  return value.toLowerCase().replace(/\b(street)\b/g, "st").replace(/\b(road)\b/g, "rd").replace(/\b(avenue)\b/g, "ave").replace(/\b(boulevard)\b/g, "blvd").replace(/[^a-z0-9]/g, "");
+}
+
+async function duplicateProperty(db: Kysely<TaskCoreDatabase>, address: string, excludeId?: string) {
+  const rows = await db.selectFrom("properties").innerJoin("clients", "clients.id", "properties.client_id")
+    .select(["properties.id", "properties.name", "properties.address", "properties.client_id", "properties.active", "clients.company_name"]).execute();
+  const normalized = normalizeAddress(address);
+  return rows.find((row) => row.id !== excludeId && normalizeAddress(row.address) === normalized);
 }
 
 function escapeHtml(value: unknown): string {
@@ -111,6 +122,39 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
         .select(["properties.id", "properties.name", "properties.address", "clients.company_name"])
         .where("properties.active", "=", 1).orderBy("clients.company_name").orderBy("properties.name").execute();
       response.json({ properties: rows });
+    } catch (error) { next(error); }
+  });
+
+  app.get("/api/tech/clients", async (_request, response, next) => {
+    try {
+      const clients = await db.selectFrom("clients").select(["id", "company_name"]).orderBy("company_name").execute();
+      response.json({ clients });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/tech/properties", async (request: TechnicianRequest, response, next) => {
+    try {
+      const parsed = technicianPropertySchema.safeParse(request.body);
+      if (!parsed.success) return response.status(400).json({ error: "Select a client and enter the property name, street, city, two-letter state, ZIP code, and inspection type.", fields: parsed.error.flatten().fieldErrors });
+      const client = await db.selectFrom("clients").select(["id", "company_name"]).where("id", "=", parsed.data.clientId).executeTakeFirst();
+      if (!client) return response.status(404).json({ error: "Client not found. Ask the owner to create the client first." });
+      const address = `${parsed.data.streetAddress}, ${parsed.data.city}, ${parsed.data.state} ${parsed.data.postalCode}`;
+      const duplicate = await duplicateProperty(db, address);
+      if (duplicate) return response.status(409).json({ error: `This address already exists as ${duplicate.name} for ${duplicate.company_name}. Select that property or ask the owner to review it.`, duplicate: { id: duplicate.id, name: duplicate.name, clientId: duplicate.client_id, active: Boolean(duplicate.active) } });
+      const now = new Date().toISOString();
+      const propertyId = randomUUID();
+      const inspectionId = randomUUID();
+      const notificationId = randomUUID();
+      const message = `${request.technician!.name} added ${parsed.data.name} for ${client.company_name} at ${address}. Review the technician-created property: ${config.publicBaseUrl}/admin/#property-${propertyId}`;
+      await db.transaction().execute(async (transaction) => {
+        await transaction.insertInto("properties").values({ id: propertyId, client_id: client.id, name: parsed.data.name, address, created_at: now }).execute();
+        await transaction.insertInto("inspections").values({ id: inspectionId, property_id: propertyId, technician_id: request.technician!.id, inspection_type: parsed.data.inspectionType, status: "Draft", created_at: now, updated_at: now, submitted_at: null, reviewed_at: null, published_at: null, report_token_hash: null, report_expires_at: null }).execute();
+        await transaction.insertInto("property_audit_events").values({ id: randomUUID(), property_id: propertyId, actor_type: "Technician", actor_id: request.technician!.id, action: "Created", details_json: JSON.stringify({ clientId: client.id, clientName: client.company_name, name: parsed.data.name, address, inspectionId }), created_at: now }).execute();
+        await transaction.insertInto("property_notifications").values({ id: notificationId, property_id: propertyId, message, delivery_status: "dashboard:pending", read_at: null, created_at: now }).execute();
+      });
+      const sms = await sendOwnerReviewText(config, message);
+      await db.updateTable("property_notifications").set({ delivery_status: `dashboard:${sms === "sent" ? "sms-sent" : sms}` }).where("id", "=", notificationId).execute();
+      response.status(201).json({ propertyId, inspectionId, ownerNotification: sms });
     } catch (error) { next(error); }
   });
 
@@ -220,12 +264,14 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
 
   app.get("/api/admin/inspection-setup", async (_request, response, next) => {
     try {
-      const [clients, properties, technicians] = await Promise.all([
+      const [clients, properties, technicians, propertyAudits, propertyNotifications] = await Promise.all([
         db.selectFrom("clients").selectAll().orderBy("company_name").execute(),
-        db.selectFrom("properties").selectAll().orderBy("name").execute(),
-        db.selectFrom("technicians").select(["id", "name", "email", "active", "created_at"]).orderBy("name").execute()
+        db.selectFrom("properties").innerJoin("clients", "clients.id", "properties.client_id").select(["properties.id", "properties.client_id", "properties.name", "properties.address", "properties.active", "properties.created_at", "clients.company_name"]).orderBy("properties.name").execute(),
+        db.selectFrom("technicians").select(["id", "name", "email", "active", "created_at"]).orderBy("name").execute(),
+        db.selectFrom("property_audit_events").selectAll().orderBy("created_at", "desc").limit(200).execute(),
+        db.selectFrom("property_notifications").selectAll().orderBy("created_at", "desc").limit(100).execute()
       ]);
-      response.json({ clients, properties, technicians });
+      response.json({ clients, properties, technicians, propertyAudits: propertyAudits.map((event) => ({ ...event, details: JSON.parse(event.details_json) })), propertyNotifications, unreadPropertyNotifications: propertyNotifications.filter((item) => !item.read_at).length });
     } catch (error) { next(error); }
   });
 
@@ -240,9 +286,61 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
   app.post("/api/admin/properties", async (request, response, next) => {
     try {
       const parsed = propertySchema.safeParse(request.body); if (!parsed.success) return response.status(400).json({ error: "Check the property details." });
-      const id = randomUUID(); await db.insertInto("properties").values({ id, client_id: parsed.data.clientId, name: parsed.data.name, address: parsed.data.address, created_at: new Date().toISOString() }).execute();
+      const duplicate = await duplicateProperty(db, parsed.data.address); if (duplicate) return response.status(409).json({ error: `This address already exists as ${duplicate.name}.` });
+      const id = randomUUID(); const now = new Date().toISOString(); await db.transaction().execute(async (transaction) => {
+        await transaction.insertInto("properties").values({ id, client_id: parsed.data.clientId, name: parsed.data.name, address: parsed.data.address, created_at: now }).execute();
+        await transaction.insertInto("property_audit_events").values({ id: randomUUID(), property_id: id, actor_type: "Owner", actor_id: config.adminUsername, action: "Created", details_json: JSON.stringify({ name: parsed.data.name, address: parsed.data.address, clientId: parsed.data.clientId }), created_at: now }).execute();
+      });
       response.status(201).json({ id });
     } catch (error) { next(error); }
+  });
+
+  app.patch("/api/admin/properties/:id", async (request, response, next) => {
+    try {
+      const parsed = ownerPropertyUpdateSchema.safeParse(request.body); if (!parsed.success) return response.status(400).json({ error: "Check the property details." });
+      const propertyId = routeParam(request, "id");
+      const existing = await db.selectFrom("properties").selectAll().where("id", "=", propertyId).executeTakeFirst(); if (!existing) return response.status(404).json({ error: "Property not found." });
+      const client = await db.selectFrom("clients").select("id").where("id", "=", parsed.data.clientId).executeTakeFirst(); if (!client) return response.status(404).json({ error: "Client not found." });
+      const duplicate = await duplicateProperty(db, parsed.data.address, propertyId); if (duplicate) return response.status(409).json({ error: `This address already exists as ${duplicate.name}. Merge the records instead.` });
+      const now = new Date().toISOString(); await db.transaction().execute(async (transaction) => {
+        await transaction.updateTable("properties").set({ client_id: parsed.data.clientId, name: parsed.data.name, address: parsed.data.address }).where("id", "=", propertyId).execute();
+        await transaction.insertInto("property_audit_events").values({ id: randomUUID(), property_id: propertyId, actor_type: "Owner", actor_id: config.adminUsername, action: "Edited", details_json: JSON.stringify({ before: { clientId: existing.client_id, name: existing.name, address: existing.address }, after: parsed.data }), created_at: now }).execute();
+      });
+      response.json({ id: propertyId });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/admin/properties/:id/archive", async (request, response, next) => {
+    try {
+      const propertyId = routeParam(request, "id"); const property = await db.selectFrom("properties").selectAll().where("id", "=", propertyId).executeTakeFirst(); if (!property) return response.status(404).json({ error: "Property not found." });
+      const now = new Date().toISOString(); await db.transaction().execute(async (transaction) => {
+        await transaction.updateTable("properties").set({ active: 0 }).where("id", "=", propertyId).execute();
+        await transaction.insertInto("property_audit_events").values({ id: randomUUID(), property_id: propertyId, actor_type: "Owner", actor_id: config.adminUsername, action: "Archived", details_json: JSON.stringify({ name: property.name, address: property.address }), created_at: now }).execute();
+        await transaction.updateTable("property_notifications").set({ read_at: now }).where("property_id", "=", propertyId).where("read_at", "is", null).execute();
+      });
+      response.status(204).end();
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/admin/properties/:id/merge", async (request, response, next) => {
+    try {
+      const parsed = propertyMergeSchema.safeParse(request.body); if (!parsed.success) return response.status(400).json({ error: "Choose the property record to keep." });
+      const sourceId = routeParam(request, "id"); if (sourceId === parsed.data.targetPropertyId) return response.status(400).json({ error: "Choose a different property to keep." });
+      const [source, target] = await Promise.all([db.selectFrom("properties").selectAll().where("id", "=", sourceId).executeTakeFirst(), db.selectFrom("properties").selectAll().where("id", "=", parsed.data.targetPropertyId).where("active", "=", 1).executeTakeFirst()]);
+      if (!source || !target) return response.status(404).json({ error: "Source or target property not found." });
+      if (source.client_id !== target.client_id) return response.status(409).json({ error: "Properties must belong to the same client before they can be merged." });
+      const now = new Date().toISOString(); await db.transaction().execute(async (transaction) => {
+        await transaction.updateTable("inspections").set({ property_id: target.id }).where("property_id", "=", source.id).execute();
+        await transaction.updateTable("properties").set({ active: 0 }).where("id", "=", source.id).execute();
+        await transaction.insertInto("property_audit_events").values({ id: randomUUID(), property_id: source.id, actor_type: "Owner", actor_id: config.adminUsername, action: "Merged", details_json: JSON.stringify({ mergedIntoPropertyId: target.id, mergedIntoName: target.name }), created_at: now }).execute();
+        await transaction.updateTable("property_notifications").set({ read_at: now }).where("property_id", "=", source.id).where("read_at", "is", null).execute();
+      });
+      response.json({ mergedIntoPropertyId: target.id });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/admin/properties/:id/notifications/read", async (request, response, next) => {
+    try { await db.updateTable("property_notifications").set({ read_at: new Date().toISOString() }).where("property_id", "=", routeParam(request, "id")).where("read_at", "is", null).execute(); response.status(204).end(); } catch (error) { next(error); }
   });
 
   app.post("/api/admin/technicians", async (request, response, next) => {
@@ -258,8 +356,8 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       const rows = await db.selectFrom("inspections").innerJoin("properties", "properties.id", "inspections.property_id").innerJoin("technicians", "technicians.id", "inspections.technician_id")
         .select(["inspections.id", "inspections.inspection_type", "inspections.status", "inspections.updated_at", "inspections.submitted_at", "properties.name as property_name", "properties.address", "technicians.name as technician_name"])
         .orderBy("inspections.updated_at", "desc").execute();
-      const unread = await db.selectFrom("notifications").select(({ fn }) => fn.count<number>("id").as("count")).where("read_at", "is", null).executeTakeFirst();
-      response.json({ inspections: rows, unreadNotifications: Number(unread?.count || 0) });
+      const [unread, unreadProperties] = await Promise.all([db.selectFrom("notifications").select(({ fn }) => fn.count<number>("id").as("count")).where("read_at", "is", null).executeTakeFirst(), db.selectFrom("property_notifications").select(({ fn }) => fn.count<number>("id").as("count")).where("read_at", "is", null).executeTakeFirst()]);
+      response.json({ inspections: rows, unreadNotifications: Number(unread?.count || 0) + Number(unreadProperties?.count || 0) });
     } catch (error) { next(error); }
   });
 

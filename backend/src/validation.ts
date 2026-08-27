@@ -68,6 +68,27 @@ export const propertySchema = z.object({
   address: singleLine(5, 250)
 });
 
+const structuredAddressSchema = z.object({
+  streetAddress: singleLine(5, 160),
+  city: singleLine(2, 80),
+  state: z.string().transform(normalizeSingleLine).pipe(z.string().regex(/^[A-Za-z]{2}$/, "Use a two-letter state code.")).transform((value) => value.toUpperCase()),
+  postalCode: z.string().transform(normalizeSingleLine).pipe(z.string().regex(/^\d{5}(?:-\d{4})?$/, "Enter a valid ZIP code."))
+});
+
+export const technicianPropertySchema = structuredAddressSchema.extend({
+  clientId: z.string().uuid(),
+  name: singleLine(2, 140),
+  inspectionType: z.enum(INSPECTION_TYPES)
+});
+
+export const ownerPropertyUpdateSchema = z.object({
+  clientId: z.string().uuid(),
+  name: singleLine(2, 140),
+  address: singleLine(5, 250)
+});
+
+export const propertyMergeSchema = z.object({ targetPropertyId: z.string().uuid() });
+
 export const technicianSchema = z.object({
   name: singleLine(2, 100),
   email: z.string().transform(normalizeSingleLine).pipe(z.string().email().max(254)),

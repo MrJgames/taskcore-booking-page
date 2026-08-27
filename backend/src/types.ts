@@ -127,6 +127,25 @@ export interface InspectionDecisionEventsTable {
   created_at: string;
 }
 
+export interface PropertyAuditEventsTable {
+  id: string;
+  property_id: string;
+  actor_type: "Technician" | "Owner";
+  actor_id: string;
+  action: "Created" | "Edited" | "Merged" | "Archived";
+  details_json: string;
+  created_at: string;
+}
+
+export interface PropertyNotificationsTable {
+  id: string;
+  property_id: string;
+  message: string;
+  delivery_status: string;
+  read_at: string | null;
+  created_at: string;
+}
+
 export interface TaskCoreDatabase {
   service_requests: ServiceRequestsTable;
   clients: ClientsTable;
@@ -138,4 +157,6 @@ export interface TaskCoreDatabase {
   inspection_findings: InspectionFindingsTable;
   notifications: NotificationsTable;
   inspection_decision_events: InspectionDecisionEventsTable;
+  property_audit_events: PropertyAuditEventsTable;
+  property_notifications: PropertyNotificationsTable;
 }

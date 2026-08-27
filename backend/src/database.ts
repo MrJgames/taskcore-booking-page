@@ -148,6 +148,25 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
     .addColumn("created_at", "varchar(30)", (column) => column.notNull())
     .execute();
 
+  await db.schema.createTable("property_audit_events").ifNotExists()
+    .addColumn("id", "varchar(36)", (column) => column.primaryKey())
+    .addColumn("property_id", "varchar(36)", (column) => column.notNull().references("properties.id"))
+    .addColumn("actor_type", "varchar(20)", (column) => column.notNull())
+    .addColumn("actor_id", "varchar(100)", (column) => column.notNull())
+    .addColumn("action", "varchar(20)", (column) => column.notNull())
+    .addColumn("details_json", "text", (column) => column.notNull().defaultTo("{}"))
+    .addColumn("created_at", "varchar(30)", (column) => column.notNull())
+    .execute();
+
+  await db.schema.createTable("property_notifications").ifNotExists()
+    .addColumn("id", "varchar(36)", (column) => column.primaryKey())
+    .addColumn("property_id", "varchar(36)", (column) => column.notNull().references("properties.id"))
+    .addColumn("message", "varchar(300)", (column) => column.notNull())
+    .addColumn("delivery_status", "varchar(40)", (column) => column.notNull())
+    .addColumn("read_at", "varchar(30)")
+    .addColumn("created_at", "varchar(30)", (column) => column.notNull())
+    .execute();
+
   for (const [name, table, columns] of [
     ["properties_client_idx", "properties", ["client_id"]],
     ["tech_sessions_token_idx", "technician_sessions", ["token_hash", "expires_at"]],
@@ -155,7 +174,9 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
     ["inspection_media_inspection_idx", "inspection_media", ["inspection_id"]],
     ["inspection_findings_inspection_idx", "inspection_findings", ["inspection_id"]],
     ["notifications_read_idx", "notifications", ["read_at", "created_at"]],
-    ["inspection_decisions_finding_idx", "inspection_decision_events", ["finding_id", "created_at"]]
+    ["inspection_decisions_finding_idx", "inspection_decision_events", ["finding_id", "created_at"]],
+    ["property_audit_property_idx", "property_audit_events", ["property_id", "created_at"]],
+    ["property_notifications_read_idx", "property_notifications", ["read_at", "created_at"]]
   ] as const) {
     await db.schema.createIndex(name).ifNotExists().on(table).columns([...columns]).execute();
   }
