@@ -4,16 +4,17 @@ import path from "node:path";
 import { Kysely, PostgresDialect } from "kysely";
 import { newDb } from "pg-mem";
 import request from "supertest";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import type { AppConfig } from "./config.js";
 import { initializeDatabase } from "./database.js";
 import type { TaskCoreDatabase } from "./types.js";
 import { checklistTemplate } from "./inspectionTemplates.js";
 
 const temporaryDirectories: string[] = [];
 
-async function portalApp() {
+async function portalApp(overrides: Partial<AppConfig> = {}) {
   const memoryPostgres = newDb({ noAstCoverageCheck: true });
   const adapter = memoryPostgres.adapters.createPg();
   const db = new Kysely<TaskCoreDatabase>({ dialect: new PostgresDialect({ pool: new adapter.Pool() }) });
@@ -22,16 +23,33 @@ async function portalApp() {
   temporaryDirectories.push(uploadDirectory);
   const config = loadConfig({
     nodeEnv: "test", databaseUrl: "postgresql://test", adminUsername: "jay", adminPassword: "test-password-long-enough",
-    corsOrigins: ["http://localhost:8000"], publicBaseUrl: "https://reports.taskcore.test", uploadDirectory, mediaStorageMode: "local"
+    corsOrigins: ["http://localhost:8000"], publicBaseUrl: "https://reports.taskcore.test", uploadDirectory, mediaStorageMode: "local", ...overrides
   });
   return { app: createApp(config, db), db, auth: "Basic " + Buffer.from("jay:test-password-long-enough").toString("base64") };
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   for (const directory of temporaryDirectories.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
 });
 
 describe("inspection portal", () => {
+  it("slides active technician sessions, records renewal, and enforces the absolute limit", async () => {
+    const { app, db, auth } = await portalApp({ technicianIdleSessionMs: 10 * 60 * 1000, technicianAbsoluteSessionMs: 60 * 60 * 1000 });
+    try {
+      await request(app).post("/api/admin/technicians").set("Authorization", auth).send({ name: "Shift Tech", email: "shift@example.com", password: "temporary-pass-123" }).expect(201);
+      const login = await request(app).post("/api/tech/login").send({ email: "shift@example.com", password: "temporary-pass-123" }).expect(200);
+      const rawCookie = login.headers["set-cookie"]; const cookie = (Array.isArray(rawCookie) ? rawCookie[0] : rawCookie)!.split(";")[0];
+      const before = await db.selectFrom("technician_sessions").selectAll().executeTakeFirstOrThrow();
+      await request(app).get("/api/tech/session").set("Cookie", cookie).expect(200);
+      let session = await db.selectFrom("technician_sessions").selectAll().executeTakeFirstOrThrow();
+      expect(new Date(session.expires_at).getTime()).toBeGreaterThanOrEqual(new Date(before.expires_at).getTime());
+      await request(app).post("/api/tech/session/renew").set("Cookie", cookie).send({ inspectionId: null }).expect(200);
+      expect((await db.selectFrom("technician_activity_events").select("event_type").execute()).map((event) => event.event_type)).toContain("Session renewed");
+      await db.updateTable("technician_sessions").set({ created_at: new Date(Date.now() - 61 * 60 * 1000).toISOString(), expires_at: new Date(Date.now() + 60_000).toISOString() }).execute();
+      await request(app).get("/api/tech/session").set("Cookie", cookie).expect(401);
+    } finally { await db.destroy(); }
+  });
   it("keeps technician findings internal until owner review and supports client decisions", async () => {
     const { app, db, auth } = await portalApp();
     try {

@@ -127,6 +127,23 @@ export interface InspectionDecisionEventsTable {
   created_at: string;
 }
 
+export interface TechnicianActivityEventsTable {
+  id: string;
+  technician_id: string;
+  inspection_id: string | null;
+  event_type: string;
+  created_at: string;
+}
+
+export interface TechnicianOperationsTable {
+  id: string;
+  technician_id: string;
+  inspection_id: string | null;
+  operation_type: string;
+  response_json: string;
+  created_at: string;
+}
+
 export interface InspectionMediaLinksTable {
   media_id: string;
   question_key: string | null;
@@ -176,6 +193,8 @@ export interface TaskCoreDatabase {
   properties: PropertiesTable;
   technicians: TechniciansTable;
   technician_sessions: TechnicianSessionsTable;
+  technician_activity_events: TechnicianActivityEventsTable;
+  technician_operations: TechnicianOperationsTable;
   inspections: InspectionsTable;
   inspection_media: InspectionMediaTable;
   inspection_findings: InspectionFindingsTable;

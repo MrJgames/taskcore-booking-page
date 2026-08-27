@@ -121,6 +121,7 @@ export const findingInputSchema = z.object({
 });
 
 export const inspectionDraftSchema = z.object({
+  operationId: z.string().min(8).max(100).optional(),
   summary: z.string().transform(normalizeMultiline).pipe(z.string().max(3000)).default(""),
   checklist: z.array(checklistResponseSchema).max(100),
   findings: z.array(findingInputSchema).max(40)

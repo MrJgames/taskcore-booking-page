@@ -102,17 +102,25 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       if (!technician || !verifyPassword(parsed.data.password, technician.password_hash)) return response.status(401).json({ error: "Email or password is incorrect." });
       const token = createOpaqueToken();
       const now = new Date();
-      const expires = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+      const expires = new Date(now.getTime() + config.technicianIdleSessionMs);
       await db.insertInto("technician_sessions").values({ id: randomUUID(), technician_id: technician.id, token_hash: hashToken(token), created_at: now.toISOString(), expires_at: expires.toISOString() }).execute();
+      await db.insertInto("technician_activity_events").values({ id: randomUUID(), technician_id: technician.id, inspection_id: null, event_type: "Authenticated", created_at: now.toISOString() }).execute();
       response.cookie("taskcore_tech_session", token, { httpOnly: true, sameSite: "strict", secure: config.nodeEnv === "production", expires, path: "/" });
       response.json({ technician: { id: technician.id, name: technician.name, email: technician.email } });
     } catch (error) { next(error); }
   });
 
-  const technicianAuth = createTechnicianAuth(db);
+  const technicianAuth = createTechnicianAuth(db, config);
   app.use("/api/tech", technicianAuth);
 
   app.get("/api/tech/session", (request: TechnicianRequest, response) => response.json({ technician: request.technician }));
+  app.post("/api/tech/session/renew", async (request: TechnicianRequest, response, next) => {
+    try {
+      const now = new Date().toISOString();
+      await db.insertInto("technician_activity_events").values({ id: randomUUID(), technician_id: request.technician!.id, inspection_id: typeof request.body?.inspectionId === "string" ? request.body.inspectionId : null, event_type: "Session renewed", created_at: now }).execute();
+      response.json({ renewedAt: now });
+    } catch (error) { next(error); }
+  });
   app.post("/api/tech/logout", async (request, response, next) => {
     try {
       const cookie = (request.get("cookie") || "").split(";").map((part) => part.trim()).find((part) => part.startsWith("taskcore_tech_session="));
@@ -201,6 +209,10 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       const inspection = await db.selectFrom("inspections").selectAll().where("id", "=", routeParam(request, "id")).where("technician_id", "=", request.technician!.id).executeTakeFirst();
       if (!inspection || !["Draft", "Needs Changes"].includes(inspection.status)) return response.status(409).json({ error: "This inspection can no longer be edited." });
       const now = new Date().toISOString();
+      if (parsed.data.operationId) {
+        const prior = await db.selectFrom("technician_operations").selectAll().where("id", "=", parsed.data.operationId).where("technician_id", "=", request.technician!.id).executeTakeFirst();
+        if (prior) return response.json({ inspection: await inspectionBundle(db, inspection.id), duplicate: true });
+      }
       await db.transaction().execute(async (transaction) => {
         await transaction.updateTable("inspections").set({ checklist_json: JSON.stringify(parsed.data.checklist), summary: parsed.data.summary, updated_at: now, status: "Draft" }).where("id", "=", inspection.id).execute();
         const existing = await transaction.selectFrom("inspection_findings").select("id").where("inspection_id", "=", inspection.id).execute();
@@ -214,6 +226,8 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
         }
         const removed = existing.map((row) => row.id).filter((id) => !retained.includes(id));
         if (removed.length) await transaction.deleteFrom("inspection_findings").where("id", "in", removed).execute();
+        if (parsed.data.operationId) await transaction.insertInto("technician_operations").values({ id: parsed.data.operationId, technician_id: request.technician!.id, inspection_id: inspection.id, operation_type: "Draft save", response_json: "{}", created_at: now }).execute();
+        await transaction.insertInto("technician_activity_events").values({ id: randomUUID(), technician_id: request.technician!.id, inspection_id: inspection.id, event_type: "Draft autosaved", created_at: now }).execute();
       });
       response.json({ inspection: await inspectionBundle(db, inspection.id) });
     } catch (error) { next(error); }
@@ -268,6 +282,11 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
   app.post("/api/tech/inspections/:id/submit", async (request: TechnicianRequest, response, next) => {
     try {
       const bundle = await inspectionBundle(db, routeParam(request, "id"));
+      const operationId = String(request.get("x-operation-id") || "").slice(0, 100);
+      if (operationId) {
+        const prior = await db.selectFrom("technician_operations").selectAll().where("id", "=", operationId).where("technician_id", "=", request.technician!.id).executeTakeFirst();
+        if (prior) return response.json(JSON.parse(prior.response_json));
+      }
       if (!bundle || bundle.technician_id !== request.technician!.id || !["Draft", "Needs Changes"].includes(bundle.status)) return response.status(409).json({ error: "Inspection cannot be submitted." });
       const checklist = bundle.checklist as Array<{ key?: string; answer?: string; note?: string }>;
       if (bundle.inspection_type === "Arrival" || bundle.inspection_type === "Departure") {
@@ -288,6 +307,8 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       }
       const now = new Date().toISOString();
       await db.updateTable("inspections").set({ status: "Submitted", submitted_at: now, updated_at: now }).where("id", "=", bundle.id).execute();
+      if (operationId) await db.insertInto("technician_operations").values({ id: operationId, technician_id: request.technician!.id, inspection_id: bundle.id, operation_type: "Submission", response_json: JSON.stringify({ status: "Submitted", submittedAt: now }), created_at: now }).execute();
+      await db.insertInto("technician_activity_events").values({ id: randomUUID(), technician_id: request.technician!.id, inspection_id: bundle.id, event_type: "Submitted", created_at: now }).execute();
       const message = `${bundle.technician_name} submitted a ${bundle.inspection_type.toLowerCase()} inspection for ${bundle.property_name}. Review and quote the findings: ${config.publicBaseUrl}/admin/#inspection-${bundle.id}`;
       const sms = await sendOwnerReviewText(config, message);
       await db.insertInto("notifications").values({ id: randomUUID(), inspection_id: bundle.id, message, delivery_status: `dashboard:${sms === "sent" ? "sms-sent" : sms}`, read_at: null, created_at: now }).execute();

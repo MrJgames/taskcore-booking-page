@@ -71,9 +71,9 @@ function cookieValue(header: string | undefined, name: string): string | undefin
   return undefined;
 }
 
-export type TechnicianRequest = Parameters<RequestHandler>[0] & { technician?: { id: string; name: string; email: string } };
+export type TechnicianRequest = Parameters<RequestHandler>[0] & { technician?: { id: string; name: string; email: string }; technicianSessionId?: string };
 
-export function createTechnicianAuth(db: Kysely<TaskCoreDatabase>): RequestHandler {
+export function createTechnicianAuth(db: Kysely<TaskCoreDatabase>, config: AppConfig): RequestHandler {
   return async (request: TechnicianRequest, response, next) => {
     try {
       const token = cookieValue(request.get("cookie"), "taskcore_tech_session");
@@ -84,7 +84,7 @@ export function createTechnicianAuth(db: Kysely<TaskCoreDatabase>): RequestHandl
       const now = new Date().toISOString();
       const row = await db.selectFrom("technician_sessions")
         .innerJoin("technicians", "technicians.id", "technician_sessions.technician_id")
-        .select(["technicians.id", "technicians.name", "technicians.email"])
+        .select(["technicians.id", "technicians.name", "technicians.email", "technician_sessions.id as session_id", "technician_sessions.created_at"])
         .where("technician_sessions.token_hash", "=", hashToken(token))
         .where("technician_sessions.expires_at", ">", now)
         .where("technicians.active", "=", 1)
@@ -93,7 +93,16 @@ export function createTechnicianAuth(db: Kysely<TaskCoreDatabase>): RequestHandl
         response.status(401).json({ error: "Your technician session has expired." });
         return;
       }
-      request.technician = row;
+      const absoluteExpires = new Date(new Date(row.created_at).getTime() + config.technicianAbsoluteSessionMs);
+      if (absoluteExpires <= new Date()) {
+        await db.deleteFrom("technician_sessions").where("id", "=", row.session_id).execute();
+        response.status(401).json({ error: "Reauthentication required.", code: "REAUTH_REQUIRED" }); return;
+      }
+      const idleExpires = new Date(Math.min(Date.now() + config.technicianIdleSessionMs, absoluteExpires.getTime()));
+      await db.updateTable("technician_sessions").set({ expires_at: idleExpires.toISOString() }).where("id", "=", row.session_id).execute();
+      response.cookie("taskcore_tech_session", token, { httpOnly: true, sameSite: "strict", secure: config.nodeEnv === "production", expires: idleExpires, path: "/" });
+      request.technician = { id: row.id, name: row.name, email: row.email };
+      request.technicianSessionId = row.session_id;
       next();
     } catch (error) {
       next(error);

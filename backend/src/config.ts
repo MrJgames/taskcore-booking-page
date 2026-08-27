@@ -31,6 +31,8 @@ export interface AppConfig {
   s3AccessKeyId?: string;
   s3SecretAccessKey?: string;
   s3ForcePathStyle: boolean;
+  technicianIdleSessionMs: number;
+  technicianAbsoluteSessionMs: number;
 }
 
 function positiveInteger(value: string | undefined, fallback: number): number {
@@ -72,7 +74,9 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     s3Bucket: process.env.S3_BUCKET?.trim() || undefined,
     s3AccessKeyId: process.env.S3_ACCESS_KEY_ID?.trim() || undefined,
     s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY?.trim() || undefined,
-    s3ForcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true"
+    s3ForcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+    technicianIdleSessionMs: positiveInteger(process.env.TECHNICIAN_IDLE_SESSION_MS, 50 * 60 * 1000),
+    technicianAbsoluteSessionMs: positiveInteger(process.env.TECHNICIAN_ABSOLUTE_SESSION_MS, 12 * 60 * 60 * 1000)
   };
   return { ...config, ...overrides };
 }

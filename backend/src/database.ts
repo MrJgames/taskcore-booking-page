@@ -148,6 +148,23 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
     .addColumn("created_at", "varchar(30)", (column) => column.notNull())
     .execute();
 
+  await db.schema.createTable("technician_activity_events").ifNotExists()
+    .addColumn("id", "varchar(36)", (column) => column.primaryKey())
+    .addColumn("technician_id", "varchar(36)", (column) => column.notNull().references("technicians.id"))
+    .addColumn("inspection_id", "varchar(36)")
+    .addColumn("event_type", "varchar(60)", (column) => column.notNull())
+    .addColumn("created_at", "varchar(30)", (column) => column.notNull())
+    .execute();
+
+  await db.schema.createTable("technician_operations").ifNotExists()
+    .addColumn("id", "varchar(100)", (column) => column.primaryKey())
+    .addColumn("technician_id", "varchar(36)", (column) => column.notNull().references("technicians.id"))
+    .addColumn("inspection_id", "varchar(36)")
+    .addColumn("operation_type", "varchar(40)", (column) => column.notNull())
+    .addColumn("response_json", "text", (column) => column.notNull().defaultTo("{}"))
+    .addColumn("created_at", "varchar(30)", (column) => column.notNull())
+    .execute();
+
   await db.schema.createTable("inspection_media_links").ifNotExists()
     .addColumn("media_id", "varchar(36)", (column) => column.primaryKey().references("inspection_media.id").onDelete("cascade"))
     .addColumn("question_key", "varchar(80)")
@@ -194,6 +211,7 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
   for (const [name, table, columns] of [
     ["properties_client_idx", "properties", ["client_id"]],
     ["tech_sessions_token_idx", "technician_sessions", ["token_hash", "expires_at"]],
+    ["technician_activity_idx", "technician_activity_events", ["technician_id", "created_at"]],
     ["inspections_status_idx", "inspections", ["status", "updated_at"]],
     ["inspection_media_inspection_idx", "inspection_media", ["inspection_id"]],
     ["inspection_findings_inspection_idx", "inspection_findings", ["inspection_id"]],

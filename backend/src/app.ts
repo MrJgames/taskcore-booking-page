@@ -61,7 +61,7 @@ export function createApp(config: AppConfig, db: Kysely<TaskCoreDatabase>) {
       callback(new Error("Origin not allowed."));
     },
     methods: ["GET", "POST", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-File-Name"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-File-Name", "X-Operation-Id"]
   }));
   app.use(express.json({ limit: config.bodyLimit, strict: true }));
 
