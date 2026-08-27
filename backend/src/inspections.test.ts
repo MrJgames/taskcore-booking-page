@@ -9,6 +9,7 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { initializeDatabase } from "./database.js";
 import type { TaskCoreDatabase } from "./types.js";
+import { checklistTemplate } from "./inspectionTemplates.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -47,11 +48,11 @@ describe("inspection portal", () => {
       const inspectionId = created.body.id;
       await request(app).put(`/api/tech/inspections/${inspectionId}`).set("Cookie", sessionCookie).send({
         summary: "Property is ready except for a loose bathroom faucet.",
-        checklist: [{ key: "bathroom", section: "Bathrooms", label: "Bathroom fixtures", answer: "Issue", note: "Faucet is loose." }],
-        findings: [{ title: "Secure bathroom faucet", details: "Faucet body moves at the vanity.", priority: "Routine" }]
+        checklist: checklistTemplate("Arrival").map((item) => ({ ...item, answer: item.key === "arrival-bathrooms" ? "Issue Found" : "Pass", note: item.key === "arrival-bathrooms" ? "Faucet is loose." : "" })),
+        findings: [{ category: "Plumbing", title: "Secure bathroom faucet", details: "Faucet body moves at the vanity.", priority: "Routine" }]
       }).expect(200);
-      for (const category of ["entry", "thermostat", "kitchen", "bathroom"]) {
-        await request(app).post(`/api/tech/inspections/${inspectionId}/media?category=${category}`).set("Cookie", sessionCookie).set("Content-Type", "image/jpeg").set("X-File-Name", `${category}.jpg`).send(Buffer.from("fake-image")).expect(201);
+      for (const item of checklistTemplate("Arrival")) {
+        await request(app).post(`/api/tech/inspections/${inspectionId}/media?category=question&questionKey=${item.key}`).set("Cookie", sessionCookie).set("Content-Type", "image/jpeg").set("X-File-Name", `${item.key}.jpg`).send(Buffer.from("fake-image")).expect(201);
       }
       await request(app).post(`/api/tech/inspections/${inspectionId}/media?category=walkthrough`).set("Cookie", sessionCookie).set("Content-Type", "video/mp4").set("X-File-Name", "walkthrough.mp4").send(Buffer.from("fake-video")).expect(201);
       await request(app).post(`/api/tech/inspections/${inspectionId}/submit`).set("Cookie", sessionCookie).expect(200);
@@ -76,6 +77,42 @@ describe("inspection portal", () => {
     } finally {
       await db.destroy();
     }
+  });
+
+  it("rejects incomplete checklist answers, missing question photos, and Issue Found answers without explanations", async () => {
+    const { app, db, auth } = await portalApp();
+    try {
+      const client = await request(app).post("/api/admin/clients").set("Authorization", auth).send({ companyName: "Validation PM", contactName: "Owner", email: "owner@example.com" }).expect(201);
+      const property = await request(app).post("/api/admin/properties").set("Authorization", auth).send({ clientId: client.body.id, name: "Validation House", address: "1 Test Way, Indio, CA" }).expect(201);
+      await request(app).post("/api/admin/technicians").set("Authorization", auth).send({ name: "Field Tech", email: "field@example.com", password: "temporary-pass-123" }).expect(201);
+      const login = await request(app).post("/api/tech/login").send({ email: "field@example.com", password: "temporary-pass-123" }).expect(200);
+      const rawCookie = login.headers["set-cookie"]; const cookie = (Array.isArray(rawCookie) ? rawCookie[0] : rawCookie)!.split(";")[0];
+      const created = await request(app).post("/api/tech/inspections").set("Cookie", cookie).send({ propertyId: property.body.id, inspectionType: "Departure" }).expect(201);
+      const items = checklistTemplate("Departure");
+      await request(app).put(`/api/tech/inspections/${created.body.id}`).set("Cookie", cookie).send({ summary: "", checklist: items.slice(1).map((item) => ({ ...item, answer: "Pass", note: "" })), findings: [] }).expect(200);
+      await request(app).post(`/api/tech/inspections/${created.body.id}/submit`).set("Cookie", cookie).expect(400).expect(/Complete every applicable/);
+      await request(app).put(`/api/tech/inspections/${created.body.id}`).set("Cookie", cookie).send({ summary: "", checklist: items.map((item, index) => ({ ...item, answer: index ? "Pass" : "Issue Found", note: "" })), findings: [] }).expect(200);
+      await request(app).post(`/api/tech/inspections/${created.body.id}/submit`).set("Cookie", cookie).expect(400).expect(/written explanation/);
+      await request(app).put(`/api/tech/inspections/${created.body.id}`).set("Cookie", cookie).send({ summary: "", checklist: items.map((item) => ({ ...item, answer: "Pass", note: "" })), findings: [] }).expect(200);
+      await request(app).post(`/api/tech/inspections/${created.body.id}/submit`).set("Cookie", cookie).expect(400).expect(/Attach at least one photo/);
+    } finally { await db.destroy(); }
+  });
+
+  it("requires complete maintenance findings and a photo linked to every finding", async () => {
+    const { app, db, auth } = await portalApp();
+    try {
+      const client = await request(app).post("/api/admin/clients").set("Authorization", auth).send({ companyName: "Maintenance PM", contactName: "Owner", email: "owner2@example.com" }).expect(201);
+      const property = await request(app).post("/api/admin/properties").set("Authorization", auth).send({ clientId: client.body.id, name: "Maintenance House", address: "2 Test Way, Indio, CA" }).expect(201);
+      await request(app).post("/api/admin/technicians").set("Authorization", auth).send({ name: "Field Tech", email: "field2@example.com", password: "temporary-pass-123" }).expect(201);
+      const login = await request(app).post("/api/tech/login").send({ email: "field2@example.com", password: "temporary-pass-123" }).expect(200); const rawCookie = login.headers["set-cookie"]; const cookie = (Array.isArray(rawCookie) ? rawCookie[0] : rawCookie)!.split(";")[0];
+      const created = await request(app).post("/api/tech/inspections").set("Cookie", cookie).send({ propertyId: property.body.id, inspectionType: "Maintenance Documentation" }).expect(201);
+      const saved = await request(app).put(`/api/tech/inspections/${created.body.id}`).set("Cookie", cookie).send({ summary: "", checklist: [], findings: [{ category: "HVAC", title: "Filter restricted", details: "Filter is visibly loaded.", priority: "Routine", recommendedNextSteps: "Replace filter" }] }).expect(200);
+      const findingId = saved.body.inspection.findings[0].id;
+      await request(app).post(`/api/tech/inspections/${created.body.id}/submit`).set("Cookie", cookie).expect(400).expect(/at least one photo/);
+      await request(app).post(`/api/tech/inspections/${created.body.id}/media?category=finding&findingId=${findingId}`).set("Cookie", cookie).set("Content-Type", "image/jpeg").send(Buffer.from("photo")).expect(201);
+      await request(app).post(`/api/tech/inspections/${created.body.id}/submit`).set("Cookie", cookie).expect(200);
+      expect(await db.selectFrom("maintenance_finding_events").selectAll().where("finding_id", "=", findingId).execute()).toHaveLength(1);
+    } finally { await db.destroy(); }
   });
 
   it("lets a technician add a validated property for an existing client and immediately starts an inspection", async () => {

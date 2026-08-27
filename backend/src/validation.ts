@@ -104,8 +104,9 @@ export const checklistResponseSchema = z.object({
   key: singleLine(1, 80),
   section: singleLine(1, 80),
   label: singleLine(2, 180),
-  answer: z.enum(["Pass", "Issue", "N/A"]),
-  note: z.string().transform(normalizeMultiline).pipe(z.string().max(1000)).default("")
+  answer: z.enum(["Pass", "Issue Found", "Not Applicable"]),
+  note: z.string().transform(normalizeMultiline).pipe(z.string().max(1000)).default(""),
+  findingId: z.string().uuid().nullable().optional()
 });
 
 export const findingInputSchema = z.object({
@@ -113,11 +114,15 @@ export const findingInputSchema = z.object({
   title: singleLine(2, 160),
   details: z.string().transform(normalizeMultiline).pipe(z.string().min(2).max(3000)),
   priority: z.enum(FINDING_PRIORITIES)
+  ,category: singleLine(2, 80).default("General")
+  ,immediateSafetyActions: z.string().transform(normalizeMultiline).pipe(z.string().max(2000)).default("")
+  ,recommendedNextSteps: z.string().transform(normalizeMultiline).pipe(z.string().max(2000)).default("")
+  ,materialsNeeded: z.string().transform(normalizeMultiline).pipe(z.string().max(2000)).default("")
 });
 
 export const inspectionDraftSchema = z.object({
   summary: z.string().transform(normalizeMultiline).pipe(z.string().max(3000)).default(""),
-  checklist: z.array(checklistResponseSchema).min(1).max(100),
+  checklist: z.array(checklistResponseSchema).max(100),
   findings: z.array(findingInputSchema).max(40)
 });
 

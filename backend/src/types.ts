@@ -2,7 +2,7 @@ import type { Generated } from "kysely";
 
 export const REQUEST_STATUSES = ["New", "Contacted", "Scheduled", "Completed", "Declined"] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
-export const INSPECTION_TYPES = ["Arrival", "Departure", "Preventative Maintenance"] as const;
+export const INSPECTION_TYPES = ["Arrival", "Departure", "Maintenance Documentation"] as const;
 export type InspectionType = (typeof INSPECTION_TYPES)[number];
 export const INSPECTION_STATUSES = ["Draft", "Submitted", "Needs Changes", "Ready", "Published"] as const;
 export type InspectionStatus = (typeof INSPECTION_STATUSES)[number];
@@ -127,6 +127,30 @@ export interface InspectionDecisionEventsTable {
   created_at: string;
 }
 
+export interface InspectionMediaLinksTable {
+  media_id: string;
+  question_key: string | null;
+  finding_id: string | null;
+}
+
+export interface MaintenanceFindingDetailsTable {
+  finding_id: string;
+  category: string;
+  immediate_safety_actions: string;
+  recommended_next_steps: string;
+  materials_needed: string;
+  review_status: string;
+}
+
+export interface MaintenanceFindingEventsTable {
+  id: string;
+  finding_id: string;
+  actor_type: "Technician" | "Owner" | "Client";
+  action: string;
+  snapshot_json: string;
+  created_at: string;
+}
+
 export interface PropertyAuditEventsTable {
   id: string;
   property_id: string;
@@ -157,6 +181,9 @@ export interface TaskCoreDatabase {
   inspection_findings: InspectionFindingsTable;
   notifications: NotificationsTable;
   inspection_decision_events: InspectionDecisionEventsTable;
+  inspection_media_links: InspectionMediaLinksTable;
+  maintenance_finding_details: MaintenanceFindingDetailsTable;
+  maintenance_finding_events: MaintenanceFindingEventsTable;
   property_audit_events: PropertyAuditEventsTable;
   property_notifications: PropertyNotificationsTable;
 }

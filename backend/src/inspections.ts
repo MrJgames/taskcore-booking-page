@@ -10,12 +10,12 @@ import { createOpaqueToken, createTechnicianAuth, hashPassword, hashToken, type 
 import { deleteMedia, persistMedia, receiveUpload, sendMedia, stagedMediaPath, uploadExtension } from "./media.js";
 import { sendClientReportEmail, sendOwnerReviewText } from "./notifications.js";
 import type { TaskCoreDatabase } from "./types.js";
+import { checklistTemplate } from "./inspectionTemplates.js";
 import { clientSchema, createInspectionSchema, findingDecisionSchema, inspectionDraftSchema, inspectionReviewSchema, ownerPropertyUpdateSchema, propertyMergeSchema, propertySchema, technicianLoginSchema, technicianPropertySchema, technicianSchema } from "./validation.js";
 
 const techDirectory = fileURLToPath(new URL("../public/tech/", import.meta.url));
 const publicDirectory = fileURLToPath(new URL("../public/", import.meta.url));
 const techIndex = path.join(techDirectory, "index.html");
-const requiredPhotoCategories = ["entry", "thermostat", "kitchen", "bathroom"];
 
 function routeParam(request: express.Request, name: string): string {
   const value = request.params[name];
@@ -63,12 +63,18 @@ async function inspectionBundle(db: Kysely<TaskCoreDatabase>, id: string) {
     ]).where("inspections.id", "=", id).executeTakeFirst();
   if (!inspection) return undefined;
   const [media, findings] = await Promise.all([
-    db.selectFrom("inspection_media").selectAll().where("inspection_id", "=", id).orderBy("created_at").execute(),
-    db.selectFrom("inspection_findings").selectAll().where("inspection_id", "=", id).orderBy("created_at").execute()
+    db.selectFrom("inspection_media").leftJoin("inspection_media_links", "inspection_media_links.media_id", "inspection_media.id")
+      .selectAll("inspection_media").select(["inspection_media_links.question_key", "inspection_media_links.finding_id"])
+      .where("inspection_media.inspection_id", "=", id).orderBy("inspection_media.created_at").execute(),
+    db.selectFrom("inspection_findings").leftJoin("maintenance_finding_details", "maintenance_finding_details.finding_id", "inspection_findings.id")
+      .selectAll("inspection_findings").select(["maintenance_finding_details.category", "maintenance_finding_details.immediate_safety_actions", "maintenance_finding_details.recommended_next_steps", "maintenance_finding_details.materials_needed", "maintenance_finding_details.review_status"])
+      .where("inspection_findings.inspection_id", "=", id).orderBy("inspection_findings.created_at").execute()
   ]);
+  const findingIds = findings.map((finding) => finding.id);
+  const events = findingIds.length ? await db.selectFrom("maintenance_finding_events").selectAll().where("finding_id", "in", findingIds).orderBy("created_at").execute() : [];
   let checklist: unknown[] = [];
   try { checklist = JSON.parse(inspection.checklist_json); } catch { checklist = []; }
-  return { ...inspection, checklist, media, findings };
+  return { ...inspection, checklist, media, findings: findings.map((finding) => ({ ...finding, history: events.filter((event) => event.finding_id === finding.id) })) };
 }
 
 async function inspectionForReportToken(db: Kysely<TaskCoreDatabase>, token: string) {
@@ -197,8 +203,17 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       const now = new Date().toISOString();
       await db.transaction().execute(async (transaction) => {
         await transaction.updateTable("inspections").set({ checklist_json: JSON.stringify(parsed.data.checklist), summary: parsed.data.summary, updated_at: now, status: "Draft" }).where("id", "=", inspection.id).execute();
-        await transaction.deleteFrom("inspection_findings").where("inspection_id", "=", inspection.id).execute();
-        if (parsed.data.findings.length) await transaction.insertInto("inspection_findings").values(parsed.data.findings.map((finding) => ({ id: finding.id || randomUUID(), inspection_id: inspection.id, title: finding.title, details: finding.details, priority: finding.priority, quote_amount_cents: null, decided_at: null, created_at: now, updated_at: now }))).execute();
+        const existing = await transaction.selectFrom("inspection_findings").select("id").where("inspection_id", "=", inspection.id).execute();
+        const retained: string[] = [];
+        for (const finding of parsed.data.findings) {
+          const id = finding.id || randomUUID(); retained.push(id);
+          const record = { id, inspection_id: inspection.id, title: finding.title, details: finding.details, priority: finding.priority, quote_amount_cents: null, decided_at: null, created_at: now, updated_at: now };
+          await transaction.insertInto("inspection_findings").values(record).onConflict((conflict) => conflict.column("id").doUpdateSet({ title: finding.title, details: finding.details, priority: finding.priority, updated_at: now })).execute();
+          await transaction.insertInto("maintenance_finding_details").values({ finding_id: id, category: finding.category, immediate_safety_actions: finding.immediateSafetyActions, recommended_next_steps: finding.recommendedNextSteps, materials_needed: finding.materialsNeeded, review_status: "Pending owner review" }).onConflict((conflict) => conflict.column("finding_id").doUpdateSet({ category: finding.category, immediate_safety_actions: finding.immediateSafetyActions, recommended_next_steps: finding.recommendedNextSteps, materials_needed: finding.materialsNeeded })).execute();
+          await transaction.insertInto("maintenance_finding_events").values({ id: randomUUID(), finding_id: id, actor_type: "Technician", action: finding.id ? "Draft updated" : "Finding created", snapshot_json: JSON.stringify(finding), created_at: now }).execute();
+        }
+        const removed = existing.map((row) => row.id).filter((id) => !retained.includes(id));
+        if (removed.length) await transaction.deleteFrom("inspection_findings").where("id", "in", removed).execute();
       });
       response.json({ inspection: await inspectionBundle(db, inspection.id) });
     } catch (error) { next(error); }
@@ -213,6 +228,12 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       const extension = uploadExtension(mimeType);
       if (!extension) return response.status(415).json({ error: "Upload a JPG, PNG, WebP, HEIC, MP4, MOV, or WebM file." });
       const kind = mimeType.startsWith("video/") ? "Walkthrough" : "Photo";
+      const questionKey = String(request.query.questionKey || "").replace(/[^a-z0-9-]/gi, "").slice(0, 80) || null;
+      const findingId = String(request.query.findingId || "").slice(0, 36) || null;
+      if (findingId) {
+        const finding = await db.selectFrom("inspection_findings").select("id").where("id", "=", findingId).where("inspection_id", "=", inspection.id).executeTakeFirst();
+        if (!finding) return response.status(400).json({ error: "The selected maintenance finding does not belong to this inspection." });
+      }
       const category = String(request.query.category || (kind === "Walkthrough" ? "walkthrough" : "general")).replace(/[^a-z0-9-]/gi, "").slice(0, 60);
       const id = randomUUID();
       const storageKey = `${inspection.id}/${id}${extension}`;
@@ -223,6 +244,7 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       destination = undefined;
       const now = new Date().toISOString();
       await db.insertInto("inspection_media").values({ id, inspection_id: inspection.id, kind, category, caption: String(request.query.caption || "").slice(0, 240), storage_key: storageKey, file_name: cleanFileName(request.get("x-file-name")), mime_type: mimeType, size_bytes: sizeBytes, created_at: now }).execute();
+      if (questionKey || findingId) await db.insertInto("inspection_media_links").values({ media_id: id, question_key: questionKey, finding_id: findingId }).execute();
       response.status(201).json({ media: { id, kind, category, mimeType, sizeBytes } });
     } catch (error) {
       if (destination) await fs.promises.rm(destination, { force: true });
@@ -247,12 +269,23 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
     try {
       const bundle = await inspectionBundle(db, routeParam(request, "id"));
       if (!bundle || bundle.technician_id !== request.technician!.id || !["Draft", "Needs Changes"].includes(bundle.status)) return response.status(409).json({ error: "Inspection cannot be submitted." });
-      const checklist = bundle.checklist as Array<{ answer?: string }>;
-      const categories = new Set(bundle.media.filter((item) => item.kind === "Photo").map((item) => item.category));
-      const missingPhotos = requiredPhotoCategories.filter((category) => !categories.has(category));
-      if (!checklist.length || checklist.some((item) => !item.answer)) return response.status(400).json({ error: "Complete every checklist item before submitting." });
-      if (missingPhotos.length) return response.status(400).json({ error: `Add required photos: ${missingPhotos.join(", ")}.` });
-      if (!bundle.media.some((item) => item.kind === "Walkthrough")) return response.status(400).json({ error: "Add the walkthrough video before submitting." });
+      const checklist = bundle.checklist as Array<{ key?: string; answer?: string; note?: string }>;
+      if (bundle.inspection_type === "Arrival" || bundle.inspection_type === "Departure") {
+        const expected = checklistTemplate(bundle.inspection_type);
+        const responses = new Map(checklist.map((item) => [item.key, item]));
+        const unanswered = expected.filter((item) => !responses.get(item.key)?.answer);
+        if (unanswered.length) return response.status(400).json({ error: "Complete every applicable checklist question before submitting." });
+        const missingExplanation = expected.filter((item) => { const answer = responses.get(item.key); return answer?.answer === "Issue Found" && !answer.note?.trim(); });
+        if (missingExplanation.length) return response.status(400).json({ error: "Add a written explanation for every Issue Found answer." });
+        const photoKeys = new Set(bundle.media.filter((item) => item.kind === "Photo" && item.question_key).map((item) => item.question_key));
+        const missingPhotos = expected.filter((item) => !photoKeys.has(item.key));
+        if (missingPhotos.length) return response.status(400).json({ error: `Attach at least one photo to every checklist question. Missing: ${missingPhotos.map((item) => item.label).join(", ")}.` });
+      } else {
+        if (!bundle.findings.length) return response.status(400).json({ error: "Add at least one maintenance finding before submitting." });
+        const photoFindingIds = new Set(bundle.media.filter((item) => item.kind === "Photo" && item.finding_id).map((item) => item.finding_id));
+        const missing = bundle.findings.filter((finding) => !finding.category || !finding.title || !finding.details || !finding.priority || !photoFindingIds.has(finding.id));
+        if (missing.length) return response.status(400).json({ error: "Every maintenance finding requires a category, title, description, priority, and at least one photo." });
+      }
       const now = new Date().toISOString();
       await db.updateTable("inspections").set({ status: "Submitted", submitted_at: now, updated_at: now }).where("id", "=", bundle.id).execute();
       const message = `${bundle.technician_name} submitted a ${bundle.inspection_type.toLowerCase()} inspection for ${bundle.property_name}. Review and quote the findings: ${config.publicBaseUrl}/admin/#inspection-${bundle.id}`;
@@ -379,6 +412,8 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       await db.transaction().execute(async (transaction) => {
         for (const finding of parsed.data.findings) {
           await transaction.updateTable("inspection_findings").set({ title: finding.title, details: finding.details, priority: finding.priority, requires_approval: finding.requiresApproval ? 1 : 0, quote_description: finding.quoteDescription, quote_amount_cents: cents(finding.quoteAmount), updated_at: now }).where("id", "=", finding.id).where("inspection_id", "=", inspectionId).execute();
+          await transaction.updateTable("maintenance_finding_details").set({ review_status: finding.quoteAmount === null ? "Owner reviewed" : "Priced" }).where("finding_id", "=", finding.id).execute();
+          await transaction.insertInto("maintenance_finding_events").values({ id: randomUUID(), finding_id: finding.id, actor_type: "Owner", action: finding.quoteAmount === null ? "Owner reviewed" : "Pricing updated", snapshot_json: JSON.stringify(finding), created_at: now }).execute();
         }
         await transaction.updateTable("inspections").set({ review_note: parsed.data.reviewNote, status: parsed.data.status, reviewed_at: now, updated_at: now }).where("id", "=", inspectionId).execute();
       });
@@ -438,12 +473,13 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
     try {
       const reportToken = routeParam(request, "token");
       const bundle = await inspectionForReportToken(db, reportToken); if (!bundle) return response.status(404).type("html").send("<h1>Report unavailable</h1><p>This secure report link is invalid or has expired.</p>");
-      const grouped = new Map<string, Array<{ label: string; answer: string; note: string }>>();
-      for (const item of bundle.checklist as Array<{ section: string; label: string; answer: string; note: string }>) grouped.set(item.section, [...(grouped.get(item.section) || []), item]);
-      const checklist = [...grouped].map(([section, items]) => `<section><h2>${escapeHtml(section)}</h2>${items.map((item) => `<div class="check"><b class="${item.answer === "Issue" ? "issue" : ""}">${escapeHtml(item.answer)}</b><span>${escapeHtml(item.label)}${item.note ? `<small>${escapeHtml(item.note)}</small>` : ""}</span></div>`).join("")}</section>`).join("");
-      const photos = bundle.media.filter((item) => item.kind === "Photo").map((item) => `<figure><img src="/report/${escapeHtml(reportToken)}/media/${item.id}" alt="${escapeHtml(item.caption || item.category)}"><figcaption>${escapeHtml(item.caption || item.category)}</figcaption></figure>`).join("");
+      const grouped = new Map<string, Array<{ key: string; label: string; answer: string; note: string; findingId?: string | null }>>();
+      for (const item of bundle.checklist as Array<{ key: string; section: string; label: string; answer: string; note: string; findingId?: string | null }>) grouped.set(item.section, [...(grouped.get(item.section) || []), item]);
+      const photoHtml = (media: typeof bundle.media) => media.map((item) => `<figure><img src="/report/${escapeHtml(reportToken)}/media/${item.id}" alt="${escapeHtml(item.caption || item.category)}"><figcaption>${escapeHtml(item.caption || item.file_name)}</figcaption></figure>`).join("");
+      const checklist = [...grouped].map(([section, items]) => `<section><h2>${escapeHtml(section)}</h2>${items.map((item) => { const linked = item.findingId ? bundle.findings.find((finding) => finding.id === item.findingId) : undefined; return `<div class="check"><b class="${item.answer === "Issue Found" ? "issue" : ""}">${escapeHtml(item.answer)}</b><span>${escapeHtml(item.label)}${item.note ? `<small>${escapeHtml(item.note)}</small>` : ""}${photoHtml(bundle.media.filter((media) => media.question_key === item.key))}${linked ? `<small><strong>Linked finding:</strong> ${escapeHtml(linked.title)}</small>` : ""}</span></div>`; }).join("")}</section>`).join("");
+      const photos = photoHtml(bundle.media.filter((item) => item.kind === "Photo" && !item.question_key && !item.finding_id));
       const video = bundle.media.find((item) => item.kind === "Walkthrough");
-      const findings = bundle.findings.map((finding) => `<article class="finding"><div><span class="priority">${escapeHtml(finding.priority)}</span><h3>${escapeHtml(finding.title)}</h3><p>${escapeHtml(finding.details)}</p><p><strong>${escapeHtml(finding.quote_description || "No repair approval requested")}</strong>${finding.requires_approval ? ` · ${dollars(finding.quote_amount_cents)}` : ""}</p></div>${finding.requires_approval ? `<form data-finding="${finding.id}"><textarea maxlength="2000" placeholder="Optional comment">${escapeHtml(finding.client_comment)}</textarea><div><button name="decision" value="Approved">Approve repair</button><button class="decline" name="decision" value="Declined">Decline</button></div><output>${escapeHtml(finding.decision === "Pending" ? "Awaiting decision" : finding.decision)}</output></form>` : `<span class="monitor">Information only</span>`}</article>`).join("") || "<p>No maintenance issues were reported.</p>";
+      const findings = bundle.findings.map((finding) => `<article class="finding"><div><span class="priority">${escapeHtml(finding.priority)} · ${escapeHtml(finding.category || "General")}</span><h3>${escapeHtml(finding.title)}</h3><p>${escapeHtml(finding.details)}</p>${finding.immediate_safety_actions ? `<p><strong>Immediate safety actions:</strong> ${escapeHtml(finding.immediate_safety_actions)}</p>` : ""}${finding.recommended_next_steps ? `<p><strong>Recommended next steps:</strong> ${escapeHtml(finding.recommended_next_steps)}</p>` : ""}${finding.materials_needed ? `<p><strong>Materials potentially needed:</strong> ${escapeHtml(finding.materials_needed)}</p>` : ""}<div class="media">${photoHtml(bundle.media.filter((media) => media.finding_id === finding.id))}</div><p><strong>${escapeHtml(finding.quote_description || "No repair approval requested")}</strong>${finding.requires_approval ? ` · ${dollars(finding.quote_amount_cents)}` : ""}</p></div>${finding.requires_approval ? `<form data-finding="${finding.id}"><textarea maxlength="2000" placeholder="Optional comment">${escapeHtml(finding.client_comment)}</textarea><div><button name="decision" value="Approved">Approve repair</button><button class="decline" name="decision" value="Declined">Decline</button></div><output>${escapeHtml(finding.decision === "Pending" ? "Awaiting decision" : finding.decision)}</output></form>` : `<span class="monitor">Information only</span>`}</article>`).join("") || "<p>No maintenance issues were reported.</p>";
       response.type("html").send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>TaskCore Inspection Report</title><link rel="stylesheet" href="/report-assets/report.css"><script src="/report-assets/report.js" defer></script></head><body><header><div class="shell"><div class="brand">TaskCore Property Report</div><h1>${escapeHtml(bundle.property_name)}</h1><div class="meta">${escapeHtml(bundle.address)}<br>${escapeHtml(bundle.inspection_type)} inspection · ${escapeHtml(new Date(bundle.submitted_at || bundle.created_at).toLocaleString())}<br>Completed by ${escapeHtml(bundle.technician_name)}</div></div></header><main class="shell"><section><h2>Inspection summary</h2><p>${escapeHtml(bundle.summary || "No additional summary.")}</p></section>${checklist}<section><h2>Property photos</h2><div class="media">${photos}</div>${video ? `<h3>Walkthrough video</h3><video controls preload="metadata" src="/report/${escapeHtml(reportToken)}/media/${video.id}"></video>` : ""}</section><section><h2>Maintenance findings and quotes</h2>${findings}</section></main></body></html>`);
     } catch (error) { next(error); }
   });

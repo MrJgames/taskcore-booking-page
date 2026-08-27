@@ -148,6 +148,30 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
     .addColumn("created_at", "varchar(30)", (column) => column.notNull())
     .execute();
 
+  await db.schema.createTable("inspection_media_links").ifNotExists()
+    .addColumn("media_id", "varchar(36)", (column) => column.primaryKey().references("inspection_media.id").onDelete("cascade"))
+    .addColumn("question_key", "varchar(80)")
+    .addColumn("finding_id", "varchar(36)", (column) => column.references("inspection_findings.id").onDelete("set null"))
+    .execute();
+
+  await db.schema.createTable("maintenance_finding_details").ifNotExists()
+    .addColumn("finding_id", "varchar(36)", (column) => column.primaryKey().references("inspection_findings.id").onDelete("cascade"))
+    .addColumn("category", "varchar(80)", (column) => column.notNull().defaultTo("General"))
+    .addColumn("immediate_safety_actions", "text", (column) => column.notNull().defaultTo(""))
+    .addColumn("recommended_next_steps", "text", (column) => column.notNull().defaultTo(""))
+    .addColumn("materials_needed", "text", (column) => column.notNull().defaultTo(""))
+    .addColumn("review_status", "varchar(40)", (column) => column.notNull().defaultTo("Pending owner review"))
+    .execute();
+
+  await db.schema.createTable("maintenance_finding_events").ifNotExists()
+    .addColumn("id", "varchar(36)", (column) => column.primaryKey())
+    .addColumn("finding_id", "varchar(36)", (column) => column.notNull())
+    .addColumn("actor_type", "varchar(20)", (column) => column.notNull())
+    .addColumn("action", "varchar(60)", (column) => column.notNull())
+    .addColumn("snapshot_json", "text", (column) => column.notNull())
+    .addColumn("created_at", "varchar(30)", (column) => column.notNull())
+    .execute();
+
   await db.schema.createTable("property_audit_events").ifNotExists()
     .addColumn("id", "varchar(36)", (column) => column.primaryKey())
     .addColumn("property_id", "varchar(36)", (column) => column.notNull().references("properties.id"))
@@ -173,6 +197,7 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
     ["inspections_status_idx", "inspections", ["status", "updated_at"]],
     ["inspection_media_inspection_idx", "inspection_media", ["inspection_id"]],
     ["inspection_findings_inspection_idx", "inspection_findings", ["inspection_id"]],
+    ["maintenance_finding_events_idx", "maintenance_finding_events", ["finding_id", "created_at"]],
     ["notifications_read_idx", "notifications", ["read_at", "created_at"]],
     ["inspection_decisions_finding_idx", "inspection_decision_events", ["finding_id", "created_at"]],
     ["property_audit_property_idx", "property_audit_events", ["property_id", "created_at"]],
