@@ -1,5 +1,5 @@
 (function(){"use strict";
-const INACTIVE_MS=45*60*1000,WARNING_MS=5*60*1000,DB_NAME="taskcore-field-recovery",STORE="drafts";let lastUserActivity=Date.now(),warningStarted=0,saveTimer=0,retryTimer=0,restoring=false,lastInspectionId="",restoredInspectionId="";const nativeFetch=window.fetch.bind(window);
+const accelerated=new URLSearchParams(location.search).get("sessionTest")==="1",INACTIVE_MS=accelerated?4500:45*60*1000,WARNING_MS=accelerated?5000:5*60*1000,DB_NAME="taskcore-field-recovery",STORE="drafts";let lastUserActivity=Date.now(),warningStarted=0,saveTimer=0,retryTimer=0,restoring=false,lastInspectionId="",restoredInspectionId="";const nativeFetch=window.fetch.bind(window);
 function status(message,error=false){const node=document.querySelector("#editor-status");if(node){node.textContent=message;node.classList.toggle("save-error",error)}}
 function db(){return new Promise((resolve,reject)=>{const request=indexedDB.open(DB_NAME,1);request.onupgradeneeded=()=>request.result.createObjectStore(STORE,{keyPath:"id"});request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})}
 async function putLocal(record){const database=await db();await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,"readwrite");tx.objectStore(STORE).put(record);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});database.close()}
