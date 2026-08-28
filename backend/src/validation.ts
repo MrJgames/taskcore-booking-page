@@ -76,7 +76,7 @@ const structuredAddressSchema = z.object({
 });
 
 export const technicianPropertySchema = structuredAddressSchema.extend({
-  clientId: z.string().uuid(),
+  clientId: z.preprocess((value) => typeof value === "string" && !value.trim() ? undefined : value, z.string().uuid().optional()),
   name: singleLine(2, 140),
   inspectionType: z.enum(INSPECTION_TYPES)
 });

@@ -169,6 +169,49 @@ describe("inspection portal", () => {
     } finally { await db.destroy(); }
   });
 
+  it("creates an unassigned property and inspection, exposes owner review context, and supports later assignment", async () => {
+    const { app, db, auth } = await portalApp();
+    try {
+      const client = await request(app).post("/api/admin/clients").set("Authorization", auth).send({ companyName: "Future Owner", contactName: "Morgan", email: "future@example.com" }).expect(201);
+      await request(app).post("/api/admin/technicians").set("Authorization", auth).send({ name: "Field Scout", email: "scout@example.com", password: "temporary-pass-123" }).expect(201);
+      const login = await request(app).post("/api/tech/login").send({ email: "scout@example.com", password: "temporary-pass-123" }).expect(200);
+      const rawCookie = login.headers["set-cookie"];
+      const cookie = (Array.isArray(rawCookie) ? rawCookie[0] : rawCookie)!.split(";")[0];
+
+      const created = await request(app).post("/api/tech/properties").set("Cookie", cookie).send({
+        clientId: "", name: "Private Home", streetAddress: "900 New Avenue", city: "La Quinta", state: "CA", postalCode: "92253", inspectionType: "Departure"
+      }).expect(201);
+      expect(created.body).toMatchObject({ propertyId: expect.any(String), inspectionId: expect.any(String), assignmentStatus: "Pending Client Assignment" });
+
+      const assignment = await db.selectFrom("property_assignment_status").selectAll().where("property_id", "=", created.body.propertyId).executeTakeFirstOrThrow();
+      expect(assignment).toMatchObject({ inspection_id: created.body.inspectionId, status: "Pending Client Assignment" });
+      const detail = await request(app).get(`/api/tech/inspections/${created.body.inspectionId}`).set("Cookie", cookie).expect(200);
+      expect(detail.body.inspection).toMatchObject({ property_name: "Private Home", company_name: "Unassigned", client_email: "", assignment_status: "Pending Client Assignment" });
+      await request(app).put(`/api/tech/inspections/${created.body.inspectionId}`).set("Cookie", cookie).send({
+        summary: "Draft started on site.", checklist: checklistTemplate("Departure").map((item) => ({ ...item, answer: "Pass", note: "" })), findings: []
+      }).expect(200);
+
+      const setup = await request(app).get("/api/admin/inspection-setup").set("Authorization", auth).expect(200);
+      expect(setup.body.clients).toHaveLength(1);
+      expect(setup.body.properties.find((item: { id: string }) => item.id === created.body.propertyId)).toMatchObject({
+        assignment_status: "Pending Client Assignment", assignment_technician_name: "Field Scout", assignment_inspection_type: "Departure", assignment_inspection_id: created.body.inspectionId
+      });
+      expect(setup.body.propertyNotifications.find((item: { property_id: string }) => item.property_id === created.body.propertyId).message).toMatch(/Client assignment is required/);
+
+      await request(app).post("/api/tech/properties").set("Cookie", cookie).send({ clientId: client.body.id, name: "Assigned Duplicate", streetAddress: "900 New Ave.", city: "La Quinta", state: "CA", postalCode: "92253", inspectionType: "Arrival" }).expect(409).expect(/already exists/);
+      await db.updateTable("inspections").set({ status: "Ready" }).where("id", "=", created.body.inspectionId).execute();
+      await request(app).post(`/api/admin/inspections/${created.body.inspectionId}/publish`).set("Authorization", auth).expect(409).expect(/Assign this property/);
+
+      await request(app).patch(`/api/admin/properties/${created.body.propertyId}`).set("Authorization", auth).send({ clientId: client.body.id, name: "Private Home", address: "900 New Avenue, La Quinta, CA 92253" }).expect(200);
+      expect(await db.selectFrom("property_assignment_status").selectAll().where("property_id", "=", created.body.propertyId).executeTakeFirst()).toBeUndefined();
+      expect((await db.selectFrom("properties").select("client_id").where("id", "=", created.body.propertyId).executeTakeFirstOrThrow()).client_id).toBe(client.body.id);
+      expect((await db.selectFrom("property_notifications").select("read_at").where("property_id", "=", created.body.propertyId).executeTakeFirstOrThrow()).read_at).toBeTruthy();
+
+      await request(app).post("/api/tech/clients").set("Cookie", cookie).send({ companyName: "Forbidden" }).expect(404);
+      await request(app).patch(`/api/tech/properties/${created.body.propertyId}`).set("Cookie", cookie).send({ clientId: client.body.id }).expect(404);
+    } finally { await db.destroy(); }
+  });
+
   it("keeps client ownership and destructive property controls owner-only while supporting owner edit, merge, archive, and review", async () => {
     const { app, db, auth } = await portalApp();
     try {

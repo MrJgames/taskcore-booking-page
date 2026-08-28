@@ -10,6 +10,8 @@ export const FINDING_PRIORITIES = ["Routine", "Urgent", "Emergency"] as const;
 export type FindingPriority = (typeof FINDING_PRIORITIES)[number];
 export const FINDING_DECISIONS = ["Pending", "Approved", "Declined"] as const;
 export type FindingDecision = (typeof FINDING_DECISIONS)[number];
+export const SYSTEM_UNASSIGNED_CLIENT_ID = "00000000-0000-4000-8000-000000000001";
+export const PENDING_PROPERTY_ASSIGNMENT = "Pending Client Assignment" as const;
 
 export interface ServiceRequestsTable {
   id: string;
@@ -187,6 +189,14 @@ export interface PropertyNotificationsTable {
   created_at: string;
 }
 
+export interface PropertyAssignmentStatusTable {
+  property_id: string;
+  status: typeof PENDING_PROPERTY_ASSIGNMENT;
+  created_by_technician_id: string;
+  inspection_id: string;
+  created_at: string;
+}
+
 export interface TaskCoreDatabase {
   service_requests: ServiceRequestsTable;
   clients: ClientsTable;
@@ -205,4 +215,5 @@ export interface TaskCoreDatabase {
   maintenance_finding_events: MaintenanceFindingEventsTable;
   property_audit_events: PropertyAuditEventsTable;
   property_notifications: PropertyNotificationsTable;
+  property_assignment_status: PropertyAssignmentStatusTable;
 }

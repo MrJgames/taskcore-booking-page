@@ -4,7 +4,7 @@ import BetterSqlite3 from "better-sqlite3";
 import { Kysely, PostgresDialect, SqliteDialect } from "kysely";
 import { Pool } from "pg";
 import type { AppConfig } from "./config.js";
-import type { TaskCoreDatabase } from "./types.js";
+import { PENDING_PROPERTY_ASSIGNMENT, SYSTEM_UNASSIGNED_CLIENT_ID, type TaskCoreDatabase } from "./types.js";
 
 export function createDatabase(config: AppConfig): Kysely<TaskCoreDatabase> {
   if (config.databaseUrl) {
@@ -148,6 +148,15 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
     .addColumn("created_at", "varchar(30)", (column) => column.notNull())
     .execute();
 
+  await db.insertInto("clients").values({
+    id: SYSTEM_UNASSIGNED_CLIENT_ID,
+    company_name: "Unassigned / Owner Review",
+    contact_name: "System record — not a customer",
+    email: "unassigned@invalid.taskcore.local",
+    phone: null,
+    created_at: new Date().toISOString()
+  }).onConflict((conflict) => conflict.column("id").doNothing()).execute();
+
   await db.schema.createTable("technician_activity_events").ifNotExists()
     .addColumn("id", "varchar(36)", (column) => column.primaryKey())
     .addColumn("technician_id", "varchar(36)", (column) => column.notNull().references("technicians.id"))
@@ -208,6 +217,14 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
     .addColumn("created_at", "varchar(30)", (column) => column.notNull())
     .execute();
 
+  await db.schema.createTable("property_assignment_status").ifNotExists()
+    .addColumn("property_id", "varchar(36)", (column) => column.primaryKey().references("properties.id").onDelete("cascade"))
+    .addColumn("status", "varchar(40)", (column) => column.notNull().defaultTo(PENDING_PROPERTY_ASSIGNMENT))
+    .addColumn("created_by_technician_id", "varchar(36)", (column) => column.notNull().references("technicians.id"))
+    .addColumn("inspection_id", "varchar(36)", (column) => column.notNull().references("inspections.id"))
+    .addColumn("created_at", "varchar(30)", (column) => column.notNull())
+    .execute();
+
   for (const [name, table, columns] of [
     ["properties_client_idx", "properties", ["client_id"]],
     ["tech_sessions_token_idx", "technician_sessions", ["token_hash", "expires_at"]],
@@ -219,7 +236,8 @@ export async function initializeDatabase(db: Kysely<TaskCoreDatabase>): Promise<
     ["notifications_read_idx", "notifications", ["read_at", "created_at"]],
     ["inspection_decisions_finding_idx", "inspection_decision_events", ["finding_id", "created_at"]],
     ["property_audit_property_idx", "property_audit_events", ["property_id", "created_at"]],
-    ["property_notifications_read_idx", "property_notifications", ["read_at", "created_at"]]
+    ["property_notifications_read_idx", "property_notifications", ["read_at", "created_at"]],
+    ["property_assignment_status_idx", "property_assignment_status", ["status", "created_at"]]
   ] as const) {
     await db.schema.createIndex(name).ifNotExists().on(table).columns([...columns]).execute();
   }
