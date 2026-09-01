@@ -1,11 +1,357 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#090b10"><title>TaskCore Field Inspections</title><link rel="stylesheet" href="./tech.css"><link rel="stylesheet" href="./property.css"><script src="./session.js" defer></script><script src="./tech.js" defer></script></head><body>
-<header><div class="shell header"><div><p class="eyebrow">TaskCore Field</p><h1>Property inspections</h1></div><button id="logout" class="ghost" hidden>Sign out</button></div></header>
-<main class="shell">
-  <section id="login-view" class="panel narrow"><h2>Technician sign in</h2><p>Use the account created by TaskCore management.</p><form id="login-form"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" minlength="10" required></label><button>Sign in</button><output></output></form></section>
-  <section id="home-view" hidden><div class="welcome"><div><p class="eyebrow">Signed in</p><h2 id="tech-name"></h2></div><button id="show-new">New inspection</button></div><form id="new-form" class="panel" hidden><h3>Start an inspection</h3><label>Property<select name="propertyId" required></select></label><label>Inspection type<select name="inspectionType"><option>Arrival</option><option>Departure</option><option>Maintenance Documentation</option></select></label><div class="row"><button>Create inspection</button><button type="button" class="ghost" id="show-add-property">Property missing?</button><button type="button" class="ghost" id="cancel-new">Cancel</button></div><output></output></form><form id="new-property-form" class="panel" hidden><p class="eyebrow">Missing property</p><h3>Add property and begin inspection</h3><p>If this property is not already associated with a TaskCore client, leave the client blank. TaskCore will flag it for owner review.</p><label>Client (optional)<select name="clientId"></select></label><label>Property name<input name="name" minlength="2" maxlength="140" required></label><label>Street address<input name="streetAddress" autocomplete="street-address" minlength="5" maxlength="160" required></label><div class="address-grid"><label>City<input name="city" autocomplete="address-level2" required></label><label>State<input name="state" autocomplete="address-level1" maxlength="2" placeholder="CA" required></label><label>ZIP code<input name="postalCode" autocomplete="postal-code" inputmode="numeric" pattern="[0-9]{5}(-[0-9]{4})?" required></label></div><label>Inspection type<select name="inspectionType"><option>Arrival</option><option>Departure</option><option>Maintenance Documentation</option></select></label><div class="row"><button>Add property and start</button><button type="button" class="ghost" id="cancel-add-property">Cancel</button></div><output></output></form><div id="inspection-list" class="cards"></div></section>
-  <section id="editor-view" hidden><button id="back-home" class="back">← Inspections</button><div class="editor-title"><p class="eyebrow" id="editor-type"></p><h2 id="editor-property"></h2><p id="editor-address"></p></div><form id="inspection-form"><div id="checklist"></div><section class="panel"><h3>Walkthrough video (optional)</h3><label class="upload"><span>Attach a walkthrough video when useful</span><input id="walkthrough" type="file" accept="video/mp4,video/quicktime,video/webm"></label><div id="uploaded-media"></div></section><section class="panel"><h3>Maintenance findings</h3><p id="maintenance-help">Document every maintenance finding below. Required fields and at least one photo per finding are enforced before submission.</p><div id="findings"></div><button type="button" class="ghost" id="add-finding">+ Add maintenance finding</button></section><section class="panel"><label>Overall notes<textarea name="summary" rows="4" maxlength="3000" placeholder="Overall condition, access notes, safety actions, or anything management should know"></textarea></label></section><div class="sticky-actions"><output id="editor-status"></output><button type="button" class="ghost" id="save-draft">Save draft</button><button type="submit">Send to owner review</button></div></form></section>
-</main>
-<dialog id="idle-dialog" aria-labelledby="idle-title"><form method="dialog" class="panel modal-panel"><h2 id="idle-title">Are you still there?</h2><p>Your session will expire in 5 minutes. Your inspection has been saved.</p><p class="countdown" id="idle-countdown" aria-live="polite">5:00</p><div class="row"><button value="continue" id="continue-working">Continue Working</button><button value="signout" class="ghost" id="idle-signout">Sign Out</button></div></form></dialog>
-<dialog id="reauth-dialog" aria-labelledby="reauth-title"><form id="reauth-form" class="panel modal-panel"><h2 id="reauth-title">Reauthentication required</h2><p>Your inspection remains saved on this device. Sign in to continue exactly where you stopped.</p><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button>Continue inspection</button><output aria-live="polite"></output></form></dialog>
-<template id="finding-template"><article class="finding"><button type="button" class="remove" aria-label="Remove finding">×</button><label>Category<input name="findingCategory" maxlength="80" required placeholder="HVAC, plumbing, safety…"></label><label>Title<input name="findingTitle" maxlength="160" required></label><label>Description<textarea name="findingDetails" rows="3" maxlength="3000" required></textarea></label><label>Priority<select name="findingPriority"><option>Routine</option><option>Urgent</option><option>Emergency</option></select></label><label>Immediate safety actions (optional)<textarea name="findingSafety" rows="2"></textarea></label><label>Recommended next steps (optional)<textarea name="findingNext" rows="2"></textarea></label><label>Materials potentially needed (optional)<textarea name="findingMaterials" rows="2"></textarea></label><label class="upload finding-upload"></label></article></template>
-</body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#090b10" />
+    <title>TaskCore Field Inspections</title>
+    <link rel="stylesheet" href="./tech.css" />
+    <link rel="stylesheet" href="./property.css" />
+    <script src="./session.js" defer></script>
+    <script src="./tech.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <div class="shell header">
+        <div>
+          <p class="eyebrow">TaskCore Field</p>
+          <h1>Property inspections</h1>
+        </div>
+        <button id="logout" class="ghost" hidden>Sign out</button>
+      </div>
+    </header>
+    <main class="shell">
+      <section id="login-view" class="panel narrow">
+        <h2>Technician sign in</h2>
+        <p>Use the account created by TaskCore management.</p>
+        <form id="login-form">
+          <label
+            >Email<input
+              name="email"
+              type="email"
+              autocomplete="username"
+              required /></label
+          ><label
+            >Password<input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              minlength="10"
+              required /></label
+          ><button>Sign in</button><output></output>
+        </form>
+      </section>
+      <section id="home-view" hidden>
+        <div class="welcome">
+          <div>
+            <p class="eyebrow">Signed in</p>
+            <h2 id="tech-name"></h2>
+          </div>
+          <button id="show-new">New inspection</button>
+        </div>
+        <section class="panel">
+          <p class="eyebrow">Assigned service jobs</p>
+          <h3>Field work</h3>
+          <div id="job-summary"></div>
+          <div id="job-list" class="cards"></div>
+        </section>
+        <h3>Inspections</h3>
+        <form id="new-form" class="panel" hidden>
+          <h3>Start an inspection</h3>
+          <label>Property<select name="propertyId" required></select></label
+          ><label
+            >Inspection type<select name="inspectionType">
+              <option>Arrival</option>
+              <option>Departure</option>
+              <option>Maintenance Documentation</option>
+            </select></label
+          >
+          <div class="row">
+            <button>Create inspection</button
+            ><button type="button" class="ghost" id="show-add-property">
+              Property missing?</button
+            ><button type="button" class="ghost" id="cancel-new">Cancel</button>
+          </div>
+          <output></output>
+        </form>
+        <form id="new-property-form" class="panel" hidden>
+          <p class="eyebrow">Missing property</p>
+          <h3>Add property and begin inspection</h3>
+          <p>
+            If this property is not already associated with a TaskCore client,
+            leave the client blank. TaskCore will flag it for owner review.
+          </p>
+          <label>Client (optional)<select name="clientId"></select></label
+          ><label
+            >Property name<input
+              name="name"
+              minlength="2"
+              maxlength="140"
+              required /></label
+          ><label
+            >Street address<input
+              name="streetAddress"
+              autocomplete="street-address"
+              minlength="5"
+              maxlength="160"
+              required
+          /></label>
+          <div class="address-grid">
+            <label
+              >City<input
+                name="city"
+                autocomplete="address-level2"
+                required /></label
+            ><label
+              >State<input
+                name="state"
+                autocomplete="address-level1"
+                maxlength="2"
+                placeholder="CA"
+                required /></label
+            ><label
+              >ZIP code<input
+                name="postalCode"
+                autocomplete="postal-code"
+                inputmode="numeric"
+                pattern="[0-9]{5}(-[0-9]{4})?"
+                required
+            /></label>
+          </div>
+          <label
+            >Inspection type<select name="inspectionType">
+              <option>Arrival</option>
+              <option>Departure</option>
+              <option>Maintenance Documentation</option>
+            </select></label
+          >
+          <div class="row">
+            <button>Add property and start</button
+            ><button type="button" class="ghost" id="cancel-add-property">
+              Cancel
+            </button>
+          </div>
+          <output></output>
+        </form>
+        <div id="inspection-list" class="cards"></div>
+      </section>
+      <section id="job-view" hidden>
+        <button id="back-jobs" class="back">← Assigned jobs</button>
+        <article class="panel">
+          <p class="eyebrow" id="job-number"></p>
+          <h2 id="job-title"></h2>
+          <p id="job-location"></p>
+          <p id="job-scope"></p>
+          <div id="job-context"></div>
+          <div class="row">
+            <button id="job-ack" type="button">Acknowledge</button
+            ><button id="job-start" type="button">Start job</button>
+          </div>
+        </article>
+        <form id="job-update-form" class="panel">
+          <h3>Field update</h3>
+          <label
+            >Update type<select name="type">
+              <option>Work Note</option>
+              <option>Blocker</option>
+            </select></label
+          ><label>Notes<textarea name="notes" required></textarea></label
+          ><label
+            >Materials used<textarea name="materialsUsed"></textarea></label
+          ><label
+            >Material cost notes<textarea
+              name="materialCostNotes"
+            ></textarea></label
+          ><label
+            >Time spent (minutes)<input
+              name="timeSpentMinutes"
+              type="number"
+              min="0"
+              max="1440" /></label
+          ><button>Add update</button><output></output>
+        </form>
+        <section class="panel">
+          <h3>Job photos</h3>
+          <label
+            >Photo type<select id="job-photo-purpose">
+              <option>Before</option>
+              <option>Progress</option>
+              <option>After</option>
+            </select></label
+          ><label class="upload"
+            ><span>Take or choose a photo</span
+            ><input
+              id="job-photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic"
+              capture="environment"
+          /></label>
+          <div id="job-media"></div>
+        </section>
+        <form id="job-completion-form" class="panel">
+          <h3>Submit field completion</h3>
+          <p>
+            The owner reviews this before anything is published to the customer.
+          </p>
+          <label
+            >Completion notes<textarea
+              name="completionNotes"
+              required
+            ></textarea></label
+          ><label
+            >Materials used<textarea name="materialsUsed"></textarea></label
+          ><label
+            >Material cost notes<textarea
+              name="materialCostNotes"
+            ></textarea></label
+          ><label
+            >Time spent (minutes)<input
+              name="timeSpentMinutes"
+              type="number"
+              min="1"
+              max="4320"
+              required /></label
+          ><button>Send to owner review</button><output></output>
+        </form>
+        <section class="panel">
+          <h3>Job history</h3>
+          <div id="job-history"></div>
+        </section>
+      </section>
+      <section id="editor-view" hidden>
+        <button id="back-home" class="back">← Inspections</button>
+        <div class="editor-title">
+          <p class="eyebrow" id="editor-type"></p>
+          <h2 id="editor-property"></h2>
+          <p id="editor-address"></p>
+        </div>
+        <form id="inspection-form">
+          <div id="checklist"></div>
+          <section class="panel">
+            <h3>Walkthrough video (optional)</h3>
+            <label class="upload"
+              ><span>Attach a walkthrough video when useful</span
+              ><input
+                id="walkthrough"
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm"
+            /></label>
+            <div id="uploaded-media"></div>
+          </section>
+          <section class="panel">
+            <h3>Maintenance findings</h3>
+            <p id="maintenance-help">
+              Document every maintenance finding below. Required fields and at
+              least one photo per finding are enforced before submission.
+            </p>
+            <div id="findings"></div>
+            <button type="button" class="ghost" id="add-finding">
+              + Add maintenance finding
+            </button>
+          </section>
+          <section class="panel">
+            <label
+              >Overall notes<textarea
+                name="summary"
+                rows="4"
+                maxlength="3000"
+                placeholder="Overall condition, access notes, safety actions, or anything management should know"
+              ></textarea>
+            </label>
+          </section>
+          <div class="sticky-actions">
+            <output id="editor-status"></output
+            ><button type="button" class="ghost" id="save-draft">
+              Save draft</button
+            ><button type="submit">Send to owner review</button>
+          </div>
+        </form>
+      </section>
+    </main>
+    <dialog id="idle-dialog" aria-labelledby="idle-title">
+      <form method="dialog" class="panel modal-panel">
+        <h2 id="idle-title">Are you still there?</h2>
+        <p>
+          Your session will expire in 5 minutes. Your inspection has been saved.
+        </p>
+        <p class="countdown" id="idle-countdown" aria-live="polite">5:00</p>
+        <div class="row">
+          <button value="continue" id="continue-working">
+            Continue Working</button
+          ><button value="signout" class="ghost" id="idle-signout">
+            Sign Out
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="reauth-dialog" aria-labelledby="reauth-title">
+      <form id="reauth-form" class="panel modal-panel">
+        <h2 id="reauth-title">Reauthentication required</h2>
+        <p>
+          Your inspection remains saved on this device. Sign in to continue
+          exactly where you stopped.
+        </p>
+        <label
+          >Email<input
+            name="email"
+            type="email"
+            autocomplete="username"
+            required /></label
+        ><label
+          >Password<input
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required /></label
+        ><button>Continue inspection</button
+        ><output aria-live="polite"></output>
+      </form>
+    </dialog>
+    <template id="finding-template"
+      ><article class="finding">
+        <button type="button" class="remove" aria-label="Remove finding">
+          ×</button
+        ><label
+          >Category<input
+            name="findingCategory"
+            maxlength="80"
+            required
+            placeholder="HVAC, plumbing, safety…" /></label
+        ><label
+          >Title<input name="findingTitle" maxlength="160" required /></label
+        ><label
+          >Description<textarea
+            name="findingDetails"
+            rows="3"
+            maxlength="3000"
+            required
+          ></textarea></label
+        ><label
+          >Priority<select name="findingPriority">
+            <option>Routine</option>
+            <option>Urgent</option>
+            <option>Emergency</option>
+          </select></label
+        ><label
+          >Immediate safety actions (optional)<textarea
+            name="findingSafety"
+            rows="2"
+          ></textarea></label
+        ><label
+          >Recommended next steps (optional)<textarea
+            name="findingNext"
+            rows="2"
+          ></textarea></label
+        ><label
+          >Materials potentially needed (optional)<textarea
+            name="findingMaterials"
+            rows="2"
+          ></textarea></label
+        ><label class="upload finding-upload"></label></article
+    ></template>
+  </body>
+</html>

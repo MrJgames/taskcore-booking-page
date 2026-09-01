@@ -1,58 +1,318 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#080b12">
-  <title>TaskCore Requests</title>
-  <link rel="stylesheet" href="./admin.css">
-  <link rel="stylesheet" href="./property-admin.css">
-  <script src="./admin.js" defer></script>
-  <script src="./inspection-admin.js" defer></script>
-  <script src="./operations-admin.js" defer></script>
-</head>
-<body>
-  <a class="skip-link" href="#requests">Skip to requests</a>
-  <header>
-    <div class="shell header-inner">
-      <div><p class="eyebrow">TaskCore Admin</p><h1>Operations dashboard</h1></div>
-      <div class="header-actions"><span id="notification-count" class="notification-count" hidden></span><button id="refresh" type="button">Refresh</button></div>
-    </div>
-  </header>
-  <main class="shell" id="requests">
-    <nav class="admin-nav"><a href="#dispatch">Dispatch</a><a href="#inspections">Inspection review</a><a href="#service-requests">Legacy requests</a><a href="#setup">Portal setup</a><a href="../manager/">Property Manager portal</a><a href="../contractor/">Contractor portal</a><a href="../tech/">Technician portal</a></nav>
-    <section id="dispatch" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">TaskCore intermediary</p><h2>Incoming requests and dispatch</h2></div><button id="refresh-dispatch" type="button">Refresh dispatch</button></div><div id="dispatch-list" class="inspection-list"></div></section>
-    <section id="operations-setup" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Role administration</p><h2>Property managers and contractors</h2></div></div><div class="setup-grid"><form id="organization-form" class="setup-form"><h3>Add Property Manager organization</h3><label><span>Organization</span><input name="name" required></label><label><span>Contact name</span><input name="contactName" required></label><label><span>Contact email</span><input name="email" type="email" required></label><label><span>Manager name</span><input name="managerName" required></label><label><span>Manager email</span><input name="managerEmail" type="email" required></label><label><span>Temporary password</span><input name="managerPassword" type="password" minlength="10" required></label><button>Create organization</button><output></output></form><form id="vendor-form" class="setup-form"><h3>Add contractor</h3><label><span>Business/person</span><input name="businessName" required></label><label><span>Contact</span><input name="contactName" required></label><label><span>Email</span><input name="email" type="email" required></label><label><span>Temporary password</span><input name="password" type="password" minlength="10" required></label><label><span>Internal compliance note</span><textarea name="internalNotes"></textarea></label><button>Create contractor</button><output></output></form></div><div id="operations-setup-summary" class="setup-summary"></div></section>
-    <section id="inspections" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Review queue</p><h2>Property inspections</h2></div><button id="refresh-inspections" type="button">Refresh inspections</button></div><p id="inspection-status" class="page-status" role="status"></p><div id="inspection-list" class="inspection-list"></div></section>
-    <section id="service-requests" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Customer intake</p><h2>Service requests</h2></div></div>
-    <p class="page-status" id="page-status" role="status" aria-live="polite">Loading requests…</p>
-    <div class="request-list" id="request-list"></div>
-    </section>
-    <section id="setup" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Inspection portal</p><h2>Clients, properties, and technicians</h2></div></div><div class="setup-grid"><form id="client-form" class="setup-form"><h3>Add client company</h3><label><span>Company</span><input name="companyName" required></label><label><span>Contact</span><input name="contactName" required></label><label><span>Email</span><input name="email" type="email" required></label><label><span>Phone</span><input name="phone" type="tel"></label><button>Add client</button><output></output></form><form id="property-form" class="setup-form"><h3>Add property</h3><label><span>Client</span><select name="clientId" required></select></label><label><span>Property name</span><input name="name" required></label><label><span>Address</span><input name="address" required></label><button>Add property</button><output></output></form><form id="technician-form" class="setup-form"><h3>Add technician</h3><label><span>Name</span><input name="name" required></label><label><span>Email</span><input name="email" type="email" required></label><label><span>Temporary password</span><input name="password" type="password" minlength="10" required></label><button>Create technician</button><output></output></form></div><div id="setup-summary" class="setup-summary"></div><div class="section-heading property-review-heading"><div><p class="eyebrow">Owner controls</p><h3>Property review and history</h3></div><button id="refresh-properties" type="button">Refresh properties</button></div><div id="property-review" class="property-review"></div></section>
-  </main>
-  <dialog id="inspection-dialog"><form method="dialog" class="dialog-close"><button aria-label="Close">Close</button></form><div id="inspection-detail"></div></dialog>
-  <template id="request-template">
-    <details class="request-card">
-      <summary class="request-summary">
-        <div><span class="status-badge"></span><h2 class="customer-name"></h2><p class="submitted-date"></p></div>
-        <span class="open-label">Open request</span>
-      </summary>
-      <div class="quick-actions"><a class="call-link">Call customer</a><a class="text-link">Text customer</a></div>
-      <dl class="request-details">
-        <div><dt>Phone</dt><dd class="phone"></dd></div>
-        <div><dt>Preferred contact</dt><dd class="contact-method"></dd></div>
-        <div><dt>Service address</dt><dd class="address"></dd></div>
-        <div><dt>Preferred date</dt><dd class="preferred-date"></dd></div>
-        <div><dt>Requested window</dt><dd class="arrival-window"></dd></div>
-      </dl>
-      <div class="issue-block"><h3>Issue</h3><p class="issue"></p></div>
-      <form class="admin-form">
-        <label><span>Status</span><select name="status"><option>New</option><option>Contacted</option><option>Scheduled</option><option>Completed</option><option>Declined</option></select></label>
-        <label><span>Private note</span><textarea name="privateNote" rows="3" maxlength="2000" placeholder="Visible only here"></textarea></label>
-        <div><button type="submit">Save changes</button><span class="save-status" role="status" aria-live="polite"></span></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#080b12" />
+    <title>TaskCore Requests</title>
+    <link rel="stylesheet" href="./admin.css" />
+    <link rel="stylesheet" href="./property-admin.css" />
+    <script src="./admin.js" defer></script>
+    <script src="./inspection-admin.js" defer></script>
+    <script src="./operations-admin.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#requests">Skip to requests</a>
+    <header>
+      <div class="shell header-inner">
+        <div>
+          <p class="eyebrow">TaskCore Admin</p>
+          <h1>Operations dashboard</h1>
+        </div>
+        <div class="header-actions">
+          <span id="notification-count" class="notification-count" hidden></span
+          ><button id="refresh" type="button">Refresh</button>
+        </div>
+      </div>
+    </header>
+    <main class="shell" id="requests">
+      <nav class="admin-nav">
+        <a href="#dispatch">Dispatch</a
+        ><a href="#completions">Completion review</a
+        ><a href="#channels">Channels</a><a href="#vendors">Vendors</a
+        ><a href="#inspections">Inspection review</a
+        ><a href="#service-requests">Legacy requests</a
+        ><a href="#setup">Portal setup</a
+        ><a href="../manager/">Property Manager portal</a
+        ><a href="../contractor/">Contractor portal</a
+        ><a href="../tech/">Technician portal</a>
+      </nav>
+      <section id="dispatch" class="dashboard-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">TaskCore intermediary</p>
+            <h2>Incoming requests and dispatch</h2>
+          </div>
+          <button id="refresh-dispatch" type="button">Refresh dispatch</button>
+        </div>
+        <div id="dispatch-summary" class="setup-summary"></div>
+        <form id="dispatch-filters" class="setup-form">
+          <label>Status<input name="status" placeholder="scheduled" /></label>
+          <label
+            >Priority<select name="priority">
+              <option value="">All</option>
+              <option>Routine</option>
+              <option>Soon</option>
+              <option>Urgent</option>
+            </select></label
+          >
+          <label
+            >Search<input
+              name="search"
+              placeholder="Request, address, customer or title"
+          /></label>
+          <button>Apply filters</button>
+        </form>
+        <div id="dispatch-list" class="inspection-list"></div>
+      </section>
+      <section id="completions" class="dashboard-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Owner controls</p>
+            <h2>Completion review and publication</h2>
+          </div>
+          <button id="refresh-completions" type="button">Refresh</button>
+        </div>
+        <div id="completion-list" class="inspection-list"></div>
+      </section>
+      <section id="channels" class="dashboard-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Routing</p>
+            <h2>Work channels</h2>
+          </div>
+        </div>
+        <div id="channel-list" class="inspection-list"></div>
+      </section>
+      <section id="vendors" class="dashboard-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Contractor network</p>
+            <h2>Vendor management</h2>
+          </div>
+        </div>
+        <div id="vendor-list" class="inspection-list"></div>
+      </section>
+      <section id="operations-setup" class="dashboard-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Role administration</p>
+            <h2>Property managers and contractors</h2>
+          </div>
+        </div>
+        <div class="setup-grid">
+          <form id="organization-form" class="setup-form">
+            <h3>Add Property Manager organization</h3>
+            <label
+              ><span>Organization</span><input name="name" required /></label
+            ><label
+              ><span>Contact name</span
+              ><input name="contactName" required /></label
+            ><label
+              ><span>Contact email</span
+              ><input name="email" type="email" required /></label
+            ><label
+              ><span>Manager name</span
+              ><input name="managerName" required /></label
+            ><label
+              ><span>Manager email</span
+              ><input name="managerEmail" type="email" required /></label
+            ><label
+              ><span>Temporary password</span
+              ><input
+                name="managerPassword"
+                type="password"
+                minlength="10"
+                required /></label
+            ><button>Create organization</button><output></output>
+          </form>
+          <form id="vendor-form" class="setup-form">
+            <h3>Add contractor</h3>
+            <label
+              ><span>Business/person</span
+              ><input name="businessName" required /></label
+            ><label
+              ><span>Contact</span><input name="contactName" required /></label
+            ><label
+              ><span>Email</span
+              ><input name="email" type="email" required /></label
+            ><label
+              ><span>Temporary password</span
+              ><input
+                name="password"
+                type="password"
+                minlength="10"
+                required /></label
+            ><label
+              ><span>Internal compliance note</span
+              ><textarea name="internalNotes"></textarea></label
+            ><button>Create contractor</button><output></output>
+          </form>
+        </div>
+        <div id="operations-setup-summary" class="setup-summary"></div>
+      </section>
+      <section id="inspections" class="dashboard-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Review queue</p>
+            <h2>Property inspections</h2>
+          </div>
+          <button id="refresh-inspections" type="button">
+            Refresh inspections
+          </button>
+        </div>
+        <p id="inspection-status" class="page-status" role="status"></p>
+        <div id="inspection-list" class="inspection-list"></div>
+      </section>
+      <section id="service-requests" class="dashboard-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Customer intake</p>
+            <h2>Service requests</h2>
+          </div>
+        </div>
+        <p
+          class="page-status"
+          id="page-status"
+          role="status"
+          aria-live="polite"
+        >
+          Loading requests…
+        </p>
+        <div class="request-list" id="request-list"></div>
+      </section>
+      <section id="setup" class="dashboard-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Inspection portal</p>
+            <h2>Clients, properties, and technicians</h2>
+          </div>
+        </div>
+        <div class="setup-grid">
+          <form id="client-form" class="setup-form">
+            <h3>Add client company</h3>
+            <label
+              ><span>Company</span><input name="companyName" required /></label
+            ><label
+              ><span>Contact</span><input name="contactName" required /></label
+            ><label
+              ><span>Email</span
+              ><input name="email" type="email" required /></label
+            ><label><span>Phone</span><input name="phone" type="tel" /></label
+            ><button>Add client</button><output></output>
+          </form>
+          <form id="property-form" class="setup-form">
+            <h3>Add property</h3>
+            <label
+              ><span>Client</span
+              ><select name="clientId" required></select></label
+            ><label
+              ><span>Property name</span><input name="name" required /></label
+            ><label><span>Address</span><input name="address" required /></label
+            ><button>Add property</button><output></output>
+          </form>
+          <form id="technician-form" class="setup-form">
+            <h3>Add technician</h3>
+            <label><span>Name</span><input name="name" required /></label
+            ><label
+              ><span>Email</span
+              ><input name="email" type="email" required /></label
+            ><label
+              ><span>Temporary password</span
+              ><input
+                name="password"
+                type="password"
+                minlength="10"
+                required /></label
+            ><button>Create technician</button><output></output>
+          </form>
+        </div>
+        <div id="setup-summary" class="setup-summary"></div>
+        <div class="section-heading property-review-heading">
+          <div>
+            <p class="eyebrow">Owner controls</p>
+            <h3>Property review and history</h3>
+          </div>
+          <button id="refresh-properties" type="button">
+            Refresh properties
+          </button>
+        </div>
+        <div id="property-review" class="property-review"></div>
+      </section>
+    </main>
+    <dialog id="inspection-dialog">
+      <form method="dialog" class="dialog-close">
+        <button aria-label="Close">Close</button>
       </form>
-    </details>
-  </template>
-</body>
+      <div id="inspection-detail"></div>
+    </dialog>
+    <template id="request-template">
+      <details class="request-card">
+        <summary class="request-summary">
+          <div>
+            <span class="status-badge"></span>
+            <h2 class="customer-name"></h2>
+            <p class="submitted-date"></p>
+          </div>
+          <span class="open-label">Open request</span>
+        </summary>
+        <div class="quick-actions">
+          <a class="call-link">Call customer</a
+          ><a class="text-link">Text customer</a>
+        </div>
+        <dl class="request-details">
+          <div>
+            <dt>Phone</dt>
+            <dd class="phone"></dd>
+          </div>
+          <div>
+            <dt>Preferred contact</dt>
+            <dd class="contact-method"></dd>
+          </div>
+          <div>
+            <dt>Service address</dt>
+            <dd class="address"></dd>
+          </div>
+          <div>
+            <dt>Preferred date</dt>
+            <dd class="preferred-date"></dd>
+          </div>
+          <div>
+            <dt>Requested window</dt>
+            <dd class="arrival-window"></dd>
+          </div>
+        </dl>
+        <div class="issue-block">
+          <h3>Issue</h3>
+          <p class="issue"></p>
+        </div>
+        <form class="admin-form">
+          <label
+            ><span>Status</span
+            ><select name="status">
+              <option>New</option>
+              <option>Contacted</option>
+              <option>Scheduled</option>
+              <option>Completed</option>
+              <option>Declined</option>
+            </select></label
+          >
+          <label
+            ><span>Private note</span
+            ><textarea
+              name="privateNote"
+              rows="3"
+              maxlength="2000"
+              placeholder="Visible only here"
+            ></textarea>
+          </label>
+          <div>
+            <button type="submit">Save changes</button
+            ><span class="save-status" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+      </details>
+    </template>
+  </body>
 </html>

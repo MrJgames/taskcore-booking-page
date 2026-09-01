@@ -247,6 +247,62 @@ async function scopedManagerRequest(
     .executeTakeFirst();
 }
 
+async function assignedTechnicianJob(
+  db: Kysely<TaskCoreDatabase>,
+  id: string,
+  technicianId: string,
+) {
+  return db
+    .selectFrom("operations_service_requests")
+    .innerJoin(
+      "properties",
+      "properties.id",
+      "operations_service_requests.property_id",
+    )
+    .leftJoin(
+      "work_channels",
+      "work_channels.id",
+      "operations_service_requests.channel_id",
+    )
+    .select([
+      "operations_service_requests.id",
+      "operations_service_requests.request_number",
+      "operations_service_requests.property_id",
+      "operations_service_requests.title",
+      "operations_service_requests.category",
+      "operations_service_requests.description",
+      "operations_service_requests.priority",
+      "operations_service_requests.status",
+      "operations_service_requests.permission_to_enter",
+      "operations_service_requests.occupancy_status",
+      "operations_service_requests.preferred_service_date",
+      "operations_service_requests.preferred_service_window",
+      "operations_service_requests.access_instructions",
+      "operations_service_requests.customer_notes",
+      "operations_service_requests.technician_notes",
+      "operations_service_requests.scheduled_at",
+      "operations_service_requests.assigned_technician_id",
+      "operations_service_requests.created_at",
+      "operations_service_requests.updated_at",
+      "properties.name as property_name",
+      "properties.address",
+      "work_channels.name as channel_name",
+    ])
+    .where("operations_service_requests.id", "=", id)
+    .where(
+      "operations_service_requests.assigned_technician_id",
+      "=",
+      technicianId,
+    )
+    .executeTakeFirst();
+}
+
+const technicianTransitions: Record<string, string[]> = {
+  assigned: ["scheduled", "in_progress"],
+  scheduled: ["in_progress"],
+  in_progress: ["awaiting_completion_review"],
+};
+
 export function registerOperationsRoutes(
   app: express.Express,
   config: AppConfig,
@@ -426,11 +482,38 @@ export function registerOperationsRoutes(
             ["completed", "closed"].includes(r.status),
           ).length,
         };
+        const propertyIds = properties.map((property) => property.id);
+        const recentActivity = propertyIds.length
+          ? await db
+              .selectFrom("property_activity")
+              .selectAll()
+              .where("property_id", "in", propertyIds)
+              .where("visibility", "=", "Customer")
+              .orderBy("created_at", "desc")
+              .limit(20)
+              .execute()
+          : [];
+        const notifications = await db
+          .selectFrom("operations_notifications")
+          .select([
+            "id",
+            "request_id",
+            "event_type",
+            "message",
+            "read_at",
+            "created_at",
+          ])
+          .where("organization_id", "=", p.organizationId)
+          .orderBy("created_at", "desc")
+          .limit(20)
+          .execute();
         res.json({
           organization,
           user: p,
           counts,
           properties,
+          recentActivity,
+          notifications,
           requests: requests.map((r) =>
             publicRequest(r as unknown as Record<string, unknown>),
           ),
@@ -480,7 +563,38 @@ export function registerOperationsRoutes(
           .where("property_id", "=", property.id)
           .where("status", "=", "Published")
           .execute();
-        res.json({ property, activity, inspections });
+        const requests = await db
+          .selectFrom("operations_service_requests")
+          .selectAll()
+          .where("property_id", "=", property.id)
+          .where("organization_id", "=", p.organizationId)
+          .orderBy("updated_at", "desc")
+          .execute();
+        const requestIds = requests.map((request) => request.id);
+        const completions = requestIds.length
+          ? await db
+              .selectFrom("job_completion_reports")
+              .select([
+                "id",
+                "request_id",
+                "customer_completion_notes",
+                "published_at",
+                "created_at",
+              ])
+              .where("request_id", "in", requestIds)
+              .where("status", "=", "Published")
+              .orderBy("published_at", "desc")
+              .execute()
+          : [];
+        res.json({
+          property,
+          activity,
+          inspections,
+          requests: requests.map((request) =>
+            publicRequest(request as unknown as Record<string, unknown>),
+          ),
+          completions,
+        });
       } catch (e) {
         next(e);
       }
@@ -492,12 +606,10 @@ export function registerOperationsRoutes(
       try {
         const parsed = requestSchema.safeParse(req.body);
         if (!parsed.success)
-          return res
-            .status(400)
-            .json({
-              error: "Check the service request details.",
-              fields: parsed.error.flatten().fieldErrors,
-            });
+          return res.status(400).json({
+            error: "Check the service request details.",
+            fields: parsed.error.flatten().fieldErrors,
+          });
         const p = req.operationsPrincipal! as Extract<
           OperationsPrincipal,
           { type: "organization_user" }
@@ -885,20 +997,57 @@ export function registerOperationsRoutes(
     "/api/contractor/requests/:id",
     async (req: OperationsRequest, res, next) => {
       try {
-        const p = req.operationsPrincipal! as Extract<OperationsPrincipal, { type: "vendor" }>;
+        const p = req.operationsPrincipal! as Extract<
+          OperationsPrincipal,
+          { type: "vendor" }
+        >;
         const row = await db
           .selectFrom("contractor_offers")
-          .innerJoin("operations_service_requests", "operations_service_requests.id", "contractor_offers.request_id")
-          .innerJoin("properties", "properties.id", "operations_service_requests.property_id")
-          .select(["operations_service_requests.id", "operations_service_requests.request_number", "operations_service_requests.title", "operations_service_requests.category", "operations_service_requests.description", "operations_service_requests.priority", "operations_service_requests.permission_to_enter", "operations_service_requests.occupancy_status", "operations_service_requests.preferred_service_date", "operations_service_requests.preferred_service_window", "operations_service_requests.access_instructions", "operations_service_requests.status", "properties.name as property_name", "properties.address", "contractor_offers.scope", "contractor_offers.offered_compensation_cents", "contractor_offers.service_window", "contractor_offers.status as offer_status"])
+          .innerJoin(
+            "operations_service_requests",
+            "operations_service_requests.id",
+            "contractor_offers.request_id",
+          )
+          .innerJoin(
+            "properties",
+            "properties.id",
+            "operations_service_requests.property_id",
+          )
+          .select([
+            "operations_service_requests.id",
+            "operations_service_requests.request_number",
+            "operations_service_requests.title",
+            "operations_service_requests.category",
+            "operations_service_requests.description",
+            "operations_service_requests.priority",
+            "operations_service_requests.permission_to_enter",
+            "operations_service_requests.occupancy_status",
+            "operations_service_requests.preferred_service_date",
+            "operations_service_requests.preferred_service_window",
+            "operations_service_requests.access_instructions",
+            "operations_service_requests.status",
+            "properties.name as property_name",
+            "properties.address",
+            "contractor_offers.scope",
+            "contractor_offers.offered_compensation_cents",
+            "contractor_offers.service_window",
+            "contractor_offers.status as offer_status",
+          ])
           .where("operations_service_requests.id", "=", routeParam(req, "id"))
           .where("contractor_offers.vendor_id", "=", p.id)
           .where("contractor_offers.status", "in", ["Offered", "Accepted"])
           .executeTakeFirst();
         if (!row) return res.status(404).json({ error: "Job not found." });
-        const media = await db.selectFrom("operations_request_media").select(["id", "kind", "file_name", "mime_type", "size_bytes"]).where("request_id", "=", row.id).where("visibility", "in", ["Customer", "Contractor"]).execute();
+        const media = await db
+          .selectFrom("operations_request_media")
+          .select(["id", "kind", "file_name", "mime_type", "size_bytes"])
+          .where("request_id", "=", row.id)
+          .where("visibility", "in", ["Customer", "Contractor"])
+          .execute();
         res.json({ job: row, media });
-      } catch (e) { next(e); }
+      } catch (e) {
+        next(e);
+      }
     },
   );
   app.post(
@@ -1023,12 +1172,14 @@ export function registerOperationsRoutes(
               technician_id: null,
               completion_notes: parsed.data.completionNotes,
               materials_notes: parsed.data.materialsNotes,
+              time_spent_minutes: null,
               invoice_amount_cents:
                 parsed.data.invoiceAmount == null
                   ? null
                   : Math.round(parsed.data.invoiceAmount * 100),
               status: "Submitted",
               reviewed_at: null,
+              published_at: null,
               created_at: now,
               updated_at: now,
             })
@@ -1103,6 +1254,11 @@ export function registerOperationsRoutes(
             "operations_service_requests.description",
             "operations_service_requests.priority",
             "operations_service_requests.status",
+            "operations_service_requests.priority",
+            "operations_service_requests.technician_notes",
+            "operations_service_requests.access_instructions",
+            "operations_service_requests.occupancy_status",
+            "operations_service_requests.preferred_service_window",
             "operations_service_requests.scheduled_at",
             "properties.name as property_name",
             "properties.address",
@@ -1115,6 +1271,414 @@ export function registerOperationsRoutes(
       }
     },
   );
+  app.get(
+    "/api/tech/jobs/:id",
+    techAuth,
+    async (req: TechnicianRequest, res, next) => {
+      try {
+        const job = await assignedTechnicianJob(
+          db,
+          routeParam(req, "id"),
+          req.technician!.id,
+        );
+        if (!job)
+          return res.status(404).json({ error: "Assigned job not found." });
+        const [allMedia, updates, completion] = await Promise.all([
+          db
+            .selectFrom("operations_request_media")
+            .select([
+              "id",
+              "kind",
+              "purpose",
+              "file_name",
+              "mime_type",
+              "size_bytes",
+              "visibility",
+              "created_at",
+            ])
+            .where("request_id", "=", job.id)
+            .orderBy("created_at")
+            .execute(),
+          db
+            .selectFrom("technician_job_updates")
+            .select([
+              "id",
+              "update_type",
+              "notes",
+              "materials_used",
+              "time_spent_minutes",
+              "created_at",
+            ])
+            .where("request_id", "=", job.id)
+            .where("technician_id", "=", req.technician!.id)
+            .orderBy("created_at")
+            .execute(),
+          db
+            .selectFrom("job_completion_reports")
+            .select([
+              "id",
+              "status",
+              "completion_notes",
+              "materials_notes",
+              "time_spent_minutes",
+              "reviewed_at",
+              "published_at",
+              "created_at",
+            ])
+            .where("request_id", "=", job.id)
+            .where("technician_id", "=", req.technician!.id)
+            .orderBy("created_at", "desc")
+            .executeTakeFirst(),
+        ]);
+        const media = allMedia.filter(
+          (item) =>
+            item.visibility === "Customer" ||
+            item.purpose.startsWith("Technician "),
+        );
+        res.json({ job, media, updates, completion });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
+  app.post(
+    "/api/tech/jobs/:id/acknowledge",
+    techAuth,
+    async (req: TechnicianRequest, res, next) => {
+      try {
+        const job = await assignedTechnicianJob(
+          db,
+          routeParam(req, "id"),
+          req.technician!.id,
+        );
+        if (!job)
+          return res.status(404).json({ error: "Assigned job not found." });
+        await db
+          .insertInto("technician_job_updates")
+          .values({
+            id: randomUUID(),
+            request_id: job.id,
+            technician_id: req.technician!.id,
+            update_type: "Acknowledged",
+            notes: "",
+            materials_used: "",
+            material_cost_notes: "",
+            time_spent_minutes: null,
+            created_at: new Date().toISOString(),
+          })
+          .execute();
+        res.status(201).json({ acknowledged: true });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
+  app.post(
+    "/api/tech/jobs/:id/status",
+    techAuth,
+    async (req: TechnicianRequest, res, next) => {
+      try {
+        const parsed = z
+          .object({
+            status: z.enum(["scheduled", "in_progress"]),
+            scheduledAt: z.string().nullable().optional(),
+          })
+          .safeParse(req.body);
+        if (!parsed.success)
+          return res
+            .status(400)
+            .json({ error: "Choose an allowed job status." });
+        const job = await assignedTechnicianJob(
+          db,
+          routeParam(req, "id"),
+          req.technician!.id,
+        );
+        if (!job)
+          return res.status(404).json({ error: "Assigned job not found." });
+        if (!technicianTransitions[job.status]?.includes(parsed.data.status))
+          return res.status(409).json({
+            error: `Technicians cannot move ${job.status} to ${parsed.data.status}.`,
+          });
+        if (parsed.data.status === "scheduled" && !parsed.data.scheduledAt)
+          return res
+            .status(400)
+            .json({ error: "Choose a scheduled date and time." });
+        const now = new Date().toISOString();
+        await db.transaction().execute(async (tx) => {
+          await tx
+            .updateTable("operations_service_requests")
+            .set({
+              status: parsed.data.status,
+              scheduled_at:
+                parsed.data.status === "scheduled"
+                  ? parsed.data.scheduledAt!
+                  : job.scheduled_at,
+              updated_at: now,
+            })
+            .where("id", "=", job.id)
+            .execute();
+          await tx
+            .insertInto("technician_job_updates")
+            .values({
+              id: randomUUID(),
+              request_id: job.id,
+              technician_id: req.technician!.id,
+              update_type:
+                parsed.data.status === "in_progress"
+                  ? "Started"
+                  : "Acknowledged",
+              notes:
+                parsed.data.status === "scheduled"
+                  ? `Scheduled ${parsed.data.scheduledAt}`
+                  : "",
+              materials_used: "",
+              material_cost_notes: "",
+              time_spent_minutes: null,
+              created_at: now,
+            })
+            .execute();
+          await tx
+            .insertInto("operations_notifications")
+            .values({
+              id: randomUUID(),
+              organization_id:
+                parsed.data.status === "in_progress"
+                  ? (
+                      await tx
+                        .selectFrom("operations_service_requests")
+                        .select("organization_id")
+                        .where("id", "=", job.id)
+                        .executeTakeFirstOrThrow()
+                    ).organization_id
+                  : null,
+              organization_user_id: null,
+              vendor_id: null,
+              request_id: job.id,
+              event_type:
+                parsed.data.status === "in_progress"
+                  ? "Work started"
+                  : "Schedule changed",
+              message: `${job.request_number} is now ${parsed.data.status.replaceAll("_", " ")}.`,
+              read_at: null,
+              created_at: now,
+            })
+            .execute();
+        });
+        await history(
+          db,
+          job.id,
+          "Technician",
+          req.technician!.id,
+          parsed.data.status === "in_progress"
+            ? "Work started"
+            : "Job scheduled",
+          job.status,
+          parsed.data.status,
+          {},
+          parsed.data.status === "in_progress",
+        );
+        res.json({ status: parsed.data.status });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
+  app.post(
+    "/api/tech/jobs/:id/updates",
+    techAuth,
+    async (req: TechnicianRequest, res, next) => {
+      try {
+        const parsed = z
+          .object({
+            type: z.enum(["Work Note", "Blocker"]),
+            notes: text(3000),
+            materialsUsed: optionalText(2000),
+            materialCostNotes: optionalText(2000),
+            timeSpentMinutes: z
+              .number()
+              .int()
+              .min(0)
+              .max(1440)
+              .nullable()
+              .optional(),
+          })
+          .safeParse(req.body);
+        if (!parsed.success)
+          return res.status(400).json({ error: "Check the field update." });
+        const job = await assignedTechnicianJob(
+          db,
+          routeParam(req, "id"),
+          req.technician!.id,
+        );
+        if (!job)
+          return res.status(404).json({ error: "Assigned job not found." });
+        if (!["assigned", "scheduled", "in_progress"].includes(job.status))
+          return res
+            .status(409)
+            .json({ error: "This job no longer accepts field updates." });
+        const now = new Date().toISOString();
+        await db
+          .insertInto("technician_job_updates")
+          .values({
+            id: randomUUID(),
+            request_id: job.id,
+            technician_id: req.technician!.id,
+            update_type: parsed.data.type,
+            notes: parsed.data.notes,
+            materials_used: parsed.data.materialsUsed,
+            material_cost_notes: parsed.data.materialCostNotes,
+            time_spent_minutes: parsed.data.timeSpentMinutes ?? null,
+            created_at: now,
+          })
+          .execute();
+        if (parsed.data.type === "Blocker")
+          await db
+            .insertInto("operations_notifications")
+            .values({
+              id: randomUUID(),
+              organization_id: null,
+              organization_user_id: null,
+              vendor_id: null,
+              request_id: job.id,
+              event_type: "Technician blocker",
+              message: `${job.request_number}: ${parsed.data.notes}`.slice(
+                0,
+                300,
+              ),
+              read_at: null,
+              created_at: now,
+            })
+            .execute();
+        await history(
+          db,
+          job.id,
+          "Technician",
+          req.technician!.id,
+          parsed.data.type,
+          job.status,
+          job.status,
+          { notes: parsed.data.notes },
+          false,
+        );
+        res.status(201).json({ createdAt: now });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
+  app.post(
+    "/api/tech/jobs/:id/completion",
+    techAuth,
+    async (req: TechnicianRequest, res, next) => {
+      try {
+        const parsed = z
+          .object({
+            completionNotes: text(5000),
+            materialsUsed: optionalText(3000),
+            materialCostNotes: optionalText(2000),
+            timeSpentMinutes: z.number().int().min(1).max(4320),
+          })
+          .safeParse(req.body);
+        if (!parsed.success)
+          return res
+            .status(400)
+            .json({ error: "Enter completion notes and time spent." });
+        const job = await assignedTechnicianJob(
+          db,
+          routeParam(req, "id"),
+          req.technician!.id,
+        );
+        if (!job)
+          return res.status(404).json({ error: "Assigned job not found." });
+        if (job.status !== "in_progress")
+          return res.status(409).json({
+            error: "Start the assigned job before submitting completion.",
+          });
+        const id = randomUUID(),
+          now = new Date().toISOString();
+        await db.transaction().execute(async (tx) => {
+          await tx
+            .insertInto("job_completion_reports")
+            .values({
+              id,
+              request_id: job.id,
+              vendor_id: null,
+              technician_id: req.technician!.id,
+              completion_notes: parsed.data.completionNotes,
+              materials_notes: parsed.data.materialsUsed,
+              material_cost_notes: parsed.data.materialCostNotes,
+              time_spent_minutes: parsed.data.timeSpentMinutes,
+              invoice_amount_cents: null,
+              status: "Submitted",
+              reviewed_at: null,
+              published_at: null,
+              created_at: now,
+              updated_at: now,
+            })
+            .execute();
+          await tx
+            .insertInto("technician_job_updates")
+            .values({
+              id: randomUUID(),
+              request_id: job.id,
+              technician_id: req.technician!.id,
+              update_type: "Completion Submitted",
+              notes: parsed.data.completionNotes,
+              materials_used: parsed.data.materialsUsed,
+              material_cost_notes: parsed.data.materialCostNotes,
+              time_spent_minutes: parsed.data.timeSpentMinutes,
+              created_at: now,
+            })
+            .execute();
+          await tx
+            .updateTable("operations_service_requests")
+            .set({ status: "awaiting_completion_review", updated_at: now })
+            .where("id", "=", job.id)
+            .execute();
+          await tx
+            .insertInto("operations_notifications")
+            .values({
+              id: randomUUID(),
+              organization_id: null,
+              organization_user_id: null,
+              vendor_id: null,
+              request_id: job.id,
+              event_type: "Technician completion",
+              message: `${req.technician!.name} submitted completion for ${job.request_number}.`,
+              read_at: null,
+              created_at: now,
+            })
+            .execute();
+        });
+        await history(
+          db,
+          job.id,
+          "Technician",
+          req.technician!.id,
+          "Completion submitted",
+          job.status,
+          "awaiting_completion_review",
+          {},
+          false,
+        );
+        res.status(201).json({ id, status: "Submitted" });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
+  app.post(
+    "/api/tech/jobs/:id/media",
+    techAuth,
+    async (req: TechnicianRequest, res, next) =>
+      uploadTechnicianJobMedia(req, res, next, db, config),
+  );
+  app.get(
+    "/api/tech/jobs/:requestId/media/:mediaId",
+    techAuth,
+    async (req: TechnicianRequest, res, next) =>
+      sendTechnicianJobMedia(req, res, next, db, config),
+  );
 }
 
 function registerAdminOperations(
@@ -1124,50 +1688,67 @@ function registerAdminOperations(
 ) {
   app.get("/api/admin/operations/setup", async (_req, res, next) => {
     try {
-      const [organizations, users, vendors, channels, technicians] =
-        await Promise.all([
-          db.selectFrom("organizations").selectAll().execute(),
-          db
-            .selectFrom("organization_users")
-            .select([
-              "id",
-              "organization_id",
-              "role",
-              "name",
-              "email",
-              "active",
-              "created_at",
-            ])
-            .execute(),
-          db
-            .selectFrom("vendors")
-            .select([
-              "id",
-              "business_name",
-              "contact_name",
-              "email",
-              "phone",
-              "status",
-              "active",
-              "w9_status",
-              "insurance_status",
-              "license_status",
-              "license_number",
-              "license_type",
-              "license_expires_at",
-              "insurance_expires_at",
-              "internal_notes",
-              "created_at",
-              "updated_at",
-            ])
-            .execute(),
-          db.selectFrom("work_channels").selectAll().execute(),
-          db
-            .selectFrom("technicians")
-            .select(["id", "name", "email", "active"])
-            .execute(),
-        ]);
-      res.json({ organizations, users, vendors, channels, technicians });
+      const [
+        organizations,
+        users,
+        vendors,
+        channels,
+        technicians,
+        technicianChannels,
+        vendorChannels,
+      ] = await Promise.all([
+        db.selectFrom("organizations").selectAll().execute(),
+        db
+          .selectFrom("organization_users")
+          .select([
+            "id",
+            "organization_id",
+            "role",
+            "name",
+            "email",
+            "active",
+            "created_at",
+          ])
+          .execute(),
+        db
+          .selectFrom("vendors")
+          .select([
+            "id",
+            "business_name",
+            "contact_name",
+            "email",
+            "phone",
+            "status",
+            "active",
+            "w9_status",
+            "insurance_status",
+            "license_status",
+            "license_number",
+            "license_type",
+            "license_expires_at",
+            "insurance_expires_at",
+            "internal_notes",
+            "created_at",
+            "updated_at",
+          ])
+          .execute(),
+        db.selectFrom("work_channels").selectAll().execute(),
+        db
+          .selectFrom("technicians")
+          .select(["id", "name", "email", "active"])
+          .execute(),
+        db.selectFrom("technician_channels").selectAll().execute(),
+        db.selectFrom("vendor_channels").selectAll().execute(),
+      ]);
+      res.json({
+        organizations,
+        users,
+        vendors,
+        channels,
+        technicians,
+        technicianChannels,
+        vendorChannels,
+      });
     } catch (e) {
       next(e);
     }
@@ -1336,9 +1917,340 @@ function registerAdminOperations(
       next(e);
     }
   });
-  app.get("/api/admin/operations/requests", async (_req, res, next) => {
+  app.patch("/api/admin/operations/channels/:id", async (req, res, next) => {
     try {
-      const rows = await db
+      const parsed = z
+        .object({
+          name: text(100),
+          description: optionalText(1000),
+          sortOrder: z.number().int().min(0).max(10000),
+          active: z.boolean(),
+          complianceReviewRecommended: z.boolean().default(false),
+        })
+        .safeParse(req.body);
+      if (!parsed.success)
+        return res
+          .status(400)
+          .json({ error: "Check the work channel details." });
+      const result = await db
+        .updateTable("work_channels")
+        .set({
+          name: parsed.data.name,
+          description: parsed.data.description,
+          sort_order: parsed.data.sortOrder,
+          active: parsed.data.active ? 1 : 0,
+          compliance_review_recommended: parsed.data.complianceReviewRecommended
+            ? 1
+            : 0,
+          updated_at: new Date().toISOString(),
+        })
+        .where("id", "=", routeParam(req, "id"))
+        .executeTakeFirst();
+      if (!Number(result.numUpdatedRows))
+        return res.status(404).json({ error: "Work channel not found." });
+      res.json({ id: routeParam(req, "id") });
+    } catch (e) {
+      next(e);
+    }
+  });
+  app.post(
+    "/api/admin/operations/channels/:id/technicians",
+    async (req, res, next) => {
+      try {
+        const parsed = z
+          .object({ technicianIds: z.array(z.string().uuid()) })
+          .safeParse(req.body);
+        if (!parsed.success)
+          return res
+            .status(400)
+            .json({ error: "Check technician assignments." });
+        const channel = await db
+          .selectFrom("work_channels")
+          .select("id")
+          .where("id", "=", routeParam(req, "id"))
+          .executeTakeFirst();
+        if (!channel)
+          return res.status(404).json({ error: "Work channel not found." });
+        await db.transaction().execute(async (tx) => {
+          await tx
+            .deleteFrom("technician_channels")
+            .where("channel_id", "=", channel.id)
+            .execute();
+          for (const technicianId of parsed.data.technicianIds) {
+            const tech = await tx
+              .selectFrom("technicians")
+              .select("id")
+              .where("id", "=", technicianId)
+              .where("active", "=", 1)
+              .executeTakeFirst();
+            if (!tech) throw new Error("INVALID_TECHNICIAN");
+            await tx
+              .insertInto("technician_channels")
+              .values({ technician_id: technicianId, channel_id: channel.id })
+              .execute();
+          }
+        });
+        res.json({ technicianIds: parsed.data.technicianIds });
+      } catch (e) {
+        if (e instanceof Error && e.message === "INVALID_TECHNICIAN")
+          return res
+            .status(400)
+            .json({ error: "An assigned technician is unavailable." });
+        next(e);
+      }
+    },
+  );
+  app.post(
+    "/api/admin/operations/channels/:id/vendors",
+    async (req, res, next) => {
+      try {
+        const parsed = z
+          .object({ vendorIds: z.array(z.string().uuid()) })
+          .safeParse(req.body);
+        if (!parsed.success)
+          return res.status(400).json({ error: "Check vendor assignments." });
+        const channel = await db
+          .selectFrom("work_channels")
+          .select("id")
+          .where("id", "=", routeParam(req, "id"))
+          .executeTakeFirst();
+        if (!channel)
+          return res.status(404).json({ error: "Work channel not found." });
+        await db.transaction().execute(async (tx) => {
+          await tx
+            .deleteFrom("vendor_channels")
+            .where("channel_id", "=", channel.id)
+            .execute();
+          for (const vendorId of parsed.data.vendorIds) {
+            const vendor = await tx
+              .selectFrom("vendors")
+              .select("id")
+              .where("id", "=", vendorId)
+              .executeTakeFirst();
+            if (!vendor) throw new Error("INVALID_VENDOR");
+            await tx
+              .insertInto("vendor_channels")
+              .values({ vendor_id: vendorId, channel_id: channel.id })
+              .execute();
+          }
+        });
+        res.json({ vendorIds: parsed.data.vendorIds });
+      } catch (e) {
+        if (e instanceof Error && e.message === "INVALID_VENDOR")
+          return res
+            .status(400)
+            .json({ error: "An assigned vendor is unavailable." });
+        next(e);
+      }
+    },
+  );
+  app.patch("/api/admin/operations/vendors/:id", async (req, res, next) => {
+    try {
+      const parsed = z
+        .object({
+          businessName: text(140),
+          contactName: text(100),
+          email: z.string().email(),
+          phone: z.string().trim().max(30).nullable().optional(),
+          active: z.boolean(),
+          status: text(30),
+          channelIds: z.array(z.string()),
+          w9Status: text(30),
+          insuranceStatus: text(30),
+          licenseStatus: text(30),
+          licenseNumber: optionalText(80),
+          licenseType: optionalText(100),
+          licenseExpiresAt: z.string().nullable().optional(),
+          insuranceExpiresAt: z.string().nullable().optional(),
+          internalNotes: optionalText(3000),
+        })
+        .safeParse(req.body);
+      if (!parsed.success)
+        return res.status(400).json({ error: "Check the vendor details." });
+      const vendorId = routeParam(req, "id"),
+        vendor = await db
+          .selectFrom("vendors")
+          .select("id")
+          .where("id", "=", vendorId)
+          .executeTakeFirst();
+      if (!vendor) return res.status(404).json({ error: "Vendor not found." });
+      await db.transaction().execute(async (tx) => {
+        await tx
+          .updateTable("vendors")
+          .set({
+            business_name: parsed.data.businessName,
+            contact_name: parsed.data.contactName,
+            email: parsed.data.email.toLowerCase(),
+            phone: parsed.data.phone || null,
+            active: parsed.data.active ? 1 : 0,
+            status: parsed.data.status,
+            w9_status: parsed.data.w9Status,
+            insurance_status: parsed.data.insuranceStatus,
+            license_status: parsed.data.licenseStatus,
+            license_number: parsed.data.licenseNumber,
+            license_type: parsed.data.licenseType,
+            license_expires_at: parsed.data.licenseExpiresAt || null,
+            insurance_expires_at: parsed.data.insuranceExpiresAt || null,
+            internal_notes: parsed.data.internalNotes,
+            updated_at: new Date().toISOString(),
+          })
+          .where("id", "=", vendorId)
+          .execute();
+        await tx
+          .deleteFrom("vendor_channels")
+          .where("vendor_id", "=", vendorId)
+          .execute();
+        for (const channelId of parsed.data.channelIds)
+          await tx
+            .insertInto("vendor_channels")
+            .values({ vendor_id: vendorId, channel_id: channelId })
+            .execute();
+      });
+      res.json({ id: vendorId });
+    } catch (e) {
+      next(e);
+    }
+  });
+  app.get("/api/admin/operations/vendors/:id", async (req, res, next) => {
+    try {
+      const vendor = await db
+        .selectFrom("vendors")
+        .selectAll()
+        .where("id", "=", routeParam(req, "id"))
+        .executeTakeFirst();
+      if (!vendor) return res.status(404).json({ error: "Vendor not found." });
+      const [channels, offers, jobs] = await Promise.all([
+        db
+          .selectFrom("vendor_channels")
+          .innerJoin(
+            "work_channels",
+            "work_channels.id",
+            "vendor_channels.channel_id",
+          )
+          .select(["work_channels.id", "work_channels.name"])
+          .where("vendor_id", "=", vendor.id)
+          .execute(),
+        db
+          .selectFrom("contractor_offers")
+          .selectAll()
+          .where("vendor_id", "=", vendor.id)
+          .orderBy("created_at", "desc")
+          .execute(),
+        db
+          .selectFrom("operations_service_requests")
+          .select([
+            "id",
+            "request_number",
+            "title",
+            "status",
+            "created_at",
+            "updated_at",
+          ])
+          .where("assigned_vendor_id", "=", vendor.id)
+          .orderBy("updated_at", "desc")
+          .execute(),
+      ]);
+      res.json({
+        vendor: { ...vendor, password_hash: undefined },
+        channels,
+        offers,
+        jobs,
+        openJobs: jobs.filter(
+          (job) =>
+            !["completed", "closed", "cancelled", "declined"].includes(
+              job.status,
+            ),
+        ).length,
+        completedJobs: jobs.filter((job) =>
+          ["completed", "closed"].includes(job.status),
+        ).length,
+      });
+    } catch (e) {
+      next(e);
+    }
+  });
+  app.get(
+    "/api/admin/operations/requests/:id/eligible-vendors",
+    async (req, res, next) => {
+      try {
+        const row = await db
+          .selectFrom("operations_service_requests")
+          .select(["id", "channel_id"])
+          .where("id", "=", routeParam(req, "id"))
+          .executeTakeFirst();
+        if (!row) return res.status(404).json({ error: "Request not found." });
+        let query = db
+          .selectFrom("vendors")
+          .innerJoin(
+            "vendor_channels",
+            "vendor_channels.vendor_id",
+            "vendors.id",
+          )
+          .innerJoin(
+            "work_channels",
+            "work_channels.id",
+            "vendor_channels.channel_id",
+          )
+          .select([
+            "vendors.id",
+            "vendors.business_name",
+            "vendors.active",
+            "vendors.w9_status",
+            "vendors.insurance_status",
+            "vendors.license_status",
+            "vendors.license_expires_at",
+            "vendors.insurance_expires_at",
+            "work_channels.id as channel_id",
+            "work_channels.name as channel_name",
+          ]);
+        if (row.channel_id)
+          query = query.where(
+            "vendor_channels.channel_id",
+            "=",
+            row.channel_id,
+          );
+        const vendors = await query.orderBy("vendors.business_name").execute();
+        const counts = await db
+          .selectFrom("operations_service_requests")
+          .select([
+            "assigned_vendor_id",
+            ({ fn }) => fn.count<number>("id").as("count"),
+          ])
+          .where("assigned_vendor_id", "is not", null)
+          .where("status", "not in", [
+            "completed",
+            "closed",
+            "cancelled",
+            "declined",
+          ])
+          .groupBy("assigned_vendor_id")
+          .execute();
+        res.json({
+          vendors: vendors.map((vendor) => ({
+            ...vendor,
+            openJobs: Number(
+              counts.find((count) => count.assigned_vendor_id === vendor.id)
+                ?.count || 0,
+            ),
+            warnings: [
+              vendor.w9_status !== "Verified" ? "W-9 not verified" : null,
+              vendor.insurance_status !== "Verified"
+                ? "Insurance not verified"
+                : null,
+              vendor.license_status !== "Verified"
+                ? "License status not verified"
+                : null,
+            ].filter(Boolean),
+          })),
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
+  app.get("/api/admin/operations/requests", async (req, res, next) => {
+    try {
+      let query = db
         .selectFrom("operations_service_requests")
         .innerJoin(
           "organizations",
@@ -1350,15 +2262,142 @@ function registerAdminOperations(
           "properties.id",
           "operations_service_requests.property_id",
         )
+        .leftJoin(
+          "work_channels",
+          "work_channels.id",
+          "operations_service_requests.channel_id",
+        )
+        .leftJoin(
+          "technicians",
+          "technicians.id",
+          "operations_service_requests.assigned_technician_id",
+        )
+        .leftJoin(
+          "vendors",
+          "vendors.id",
+          "operations_service_requests.assigned_vendor_id",
+        )
         .selectAll("operations_service_requests")
         .select([
           "organizations.name as organization_name",
           "properties.name as property_name",
           "properties.address",
-        ])
+          "work_channels.name as channel_name",
+          "technicians.name as technician_name",
+          "vendors.business_name as vendor_name",
+        ]);
+      const value = (name: string) =>
+        typeof req.query[name] === "string"
+          ? String(req.query[name]).trim()
+          : "";
+      if (value("status"))
+        query = query.where(
+          "operations_service_requests.status",
+          "=",
+          value("status") as OperationsRequestStatus,
+        );
+      if (value("priority"))
+        query = query.where(
+          "operations_service_requests.priority",
+          "=",
+          value("priority") as "Routine" | "Soon" | "Urgent",
+        );
+      if (value("propertyId"))
+        query = query.where(
+          "operations_service_requests.property_id",
+          "=",
+          value("propertyId"),
+        );
+      if (value("organizationId"))
+        query = query.where(
+          "operations_service_requests.organization_id",
+          "=",
+          value("organizationId"),
+        );
+      if (value("channelId"))
+        query = query.where(
+          "operations_service_requests.channel_id",
+          "=",
+          value("channelId"),
+        );
+      if (value("technicianId"))
+        query = query.where(
+          "operations_service_requests.assigned_technician_id",
+          "=",
+          value("technicianId"),
+        );
+      if (value("vendorId"))
+        query = query.where(
+          "operations_service_requests.assigned_vendor_id",
+          "=",
+          value("vendorId"),
+        );
+      if (value("from"))
+        query = query.where(
+          "operations_service_requests.created_at",
+          ">=",
+          value("from"),
+        );
+      if (value("to"))
+        query = query.where(
+          "operations_service_requests.created_at",
+          "<=",
+          value("to"),
+        );
+      if (value("search")) {
+        const pattern = `%${value("search").toLowerCase()}%`;
+        query = query.where((eb) =>
+          eb.or([
+            eb(
+              eb.fn("lower", ["operations_service_requests.request_number"]),
+              "like",
+              pattern,
+            ),
+            eb(
+              eb.fn("lower", ["operations_service_requests.title"]),
+              "like",
+              pattern,
+            ),
+            eb(eb.fn("lower", ["properties.name"]), "like", pattern),
+            eb(eb.fn("lower", ["properties.address"]), "like", pattern),
+            eb(eb.fn("lower", ["organizations.name"]), "like", pattern),
+          ]),
+        );
+      }
+      const rows = await query
         .orderBy("operations_service_requests.updated_at", "desc")
+        .limit(250)
         .execute();
-      res.json({ requests: rows });
+      const summary = {
+        newRequests: 0,
+        needsInformation: 0,
+        awaitingApproval: 0,
+        readyToDispatch: 0,
+        vendorOffersPending: 0,
+        scheduled: 0,
+        inProgress: 0,
+        awaitingCompletionReview: 0,
+        urgent: 0,
+      };
+      for (const row of rows) {
+        if (["submitted", "owner_review"].includes(row.status))
+          summary.newRequests++;
+        if (row.status === "needs_information") summary.needsInformation++;
+        if (row.status === "awaiting_approval") summary.awaitingApproval++;
+        if (["approved", "dispatching"].includes(row.status))
+          summary.readyToDispatch++;
+        if (row.status === "offered_to_vendor") summary.vendorOffersPending++;
+        if (row.status === "scheduled") summary.scheduled++;
+        if (row.status === "in_progress") summary.inProgress++;
+        if (row.status === "awaiting_completion_review")
+          summary.awaitingCompletionReview++;
+        if (
+          row.priority === "Urgent" &&
+          !["completed", "closed", "declined", "cancelled"].includes(row.status)
+        )
+          summary.urgent++;
+      }
+      res.json({ requests: rows, summary, appliedFilters: req.query });
     } catch (e) {
       next(e);
     }
@@ -1379,6 +2418,10 @@ function registerAdminOperations(
         offers,
         completions,
         activity,
+        recentInspections,
+        relatedRequests,
+        estimateRevisions,
+        technicianUpdates,
       ] = await Promise.all([
         db
           .selectFrom("operations_request_history")
@@ -1417,6 +2460,53 @@ function registerAdminOperations(
           .where("property_id", "=", row.property_id)
           .orderBy("created_at", "desc")
           .execute(),
+        db
+          .selectFrom("inspections")
+          .select([
+            "id",
+            "inspection_type",
+            "status",
+            "summary",
+            "created_at",
+            "submitted_at",
+            "published_at",
+          ])
+          .where("property_id", "=", row.property_id)
+          .orderBy("created_at", "desc")
+          .limit(10)
+          .execute(),
+        db
+          .selectFrom("operations_service_requests")
+          .select([
+            "id",
+            "request_number",
+            "title",
+            "category",
+            "status",
+            "created_at",
+          ])
+          .where("property_id", "=", row.property_id)
+          .where("id", "!=", row.id)
+          .orderBy("created_at", "desc")
+          .limit(10)
+          .execute(),
+        db
+          .selectFrom("estimate_revisions")
+          .innerJoin(
+            "estimates",
+            "estimates.id",
+            "estimate_revisions.estimate_id",
+          )
+          .selectAll("estimate_revisions")
+          .where("estimates.request_id", "=", row.id)
+          .orderBy("revision_number", "desc")
+          .execute(),
+        db
+          .selectFrom("technician_job_updates")
+          .selectAll()
+          .where("request_id", "=", row.id)
+          .orderBy("created_at", "desc")
+          .execute(),
       ]);
       res.json({
         request: row,
@@ -1427,6 +2517,10 @@ function registerAdminOperations(
         offers,
         completions,
         propertyHistory: activity,
+        recentInspections,
+        relatedRequests,
+        estimateRevisions,
+        technicianUpdates,
       });
     } catch (e) {
       next(e);
@@ -1442,6 +2536,7 @@ function registerAdminOperations(
             category: z.string().trim().max(100).optional(),
             priority: z.enum(["Routine", "Soon", "Urgent"]).optional(),
             internalNotes: z.string().trim().max(5000).optional(),
+            technicianNotes: z.string().trim().max(3000).optional(),
             channelId: z.string().nullable().optional(),
             technicianId: z.string().uuid().nullable().optional(),
             scheduledAt: z.string().nullable().optional(),
@@ -1456,15 +2551,25 @@ function registerAdminOperations(
           .where("id", "=", routeParam(req, "id"))
           .executeTakeFirst();
         if (!row) return res.status(404).json({ error: "Request not found." });
+        if (parsed.data.technicianId) {
+          const technician = await db
+            .selectFrom("technicians")
+            .select("id")
+            .where("id", "=", parsed.data.technicianId)
+            .where("active", "=", 1)
+            .executeTakeFirst();
+          if (!technician)
+            return res
+              .status(404)
+              .json({ error: "Active technician not found." });
+        }
         if (
           parsed.data.status &&
           !transitions[row.status].includes(parsed.data.status)
         )
-          return res
-            .status(409)
-            .json({
-              error: `Cannot move ${row.status} to ${parsed.data.status}.`,
-            });
+          return res.status(409).json({
+            error: `Cannot move ${row.status} to ${parsed.data.status}.`,
+          });
         const now = new Date().toISOString(),
           changes: Partial<typeof row> = { updated_at: now };
         if (parsed.data.status) changes.status = parsed.data.status;
@@ -1472,6 +2577,8 @@ function registerAdminOperations(
         if (parsed.data.priority) changes.priority = parsed.data.priority;
         if (parsed.data.internalNotes !== undefined)
           changes.internal_notes = parsed.data.internalNotes;
+        if (parsed.data.technicianNotes !== undefined)
+          changes.technician_notes = parsed.data.technicianNotes;
         if (parsed.data.channelId !== undefined)
           changes.channel_id = parsed.data.channelId;
         if (parsed.data.technicianId !== undefined)
@@ -1483,6 +2590,46 @@ function registerAdminOperations(
           .set(changes)
           .where("id", "=", row.id)
           .execute();
+        if (
+          parsed.data.technicianId &&
+          parsed.data.technicianId !== row.assigned_technician_id
+        )
+          await db
+            .insertInto("operations_notifications")
+            .values({
+              id: randomUUID(),
+              organization_id: null,
+              organization_user_id: null,
+              vendor_id: null,
+              technician_id: parsed.data.technicianId,
+              request_id: row.id,
+              event_type: "New job assigned",
+              message: `${row.request_number} was assigned to you.`,
+              read_at: null,
+              created_at: now,
+            })
+            .execute();
+        if (
+          parsed.data.scheduledAt !== undefined &&
+          parsed.data.scheduledAt !== row.scheduled_at
+        ) {
+          await db
+            .insertInto("operations_notifications")
+            .values({
+              id: randomUUID(),
+              organization_id: row.organization_id,
+              organization_user_id: null,
+              vendor_id: null,
+              technician_id:
+                parsed.data.technicianId || row.assigned_technician_id,
+              request_id: row.id,
+              event_type: "Schedule changed",
+              message: `${row.request_number} schedule was updated.`,
+              read_at: null,
+              created_at: now,
+            })
+            .execute();
+        }
         if (parsed.data.customerNote)
           await db
             .insertInto("operations_comments")
@@ -1652,11 +2799,9 @@ function registerAdminOperations(
             "offered_to_vendor",
           ].includes(row.status)
         )
-          return res
-            .status(409)
-            .json({
-              error: "This request is not ready for contractor dispatch.",
-            });
+          return res.status(409).json({
+            error: "This request is not ready for contractor dispatch.",
+          });
         const id = randomUUID(),
           now = new Date().toISOString();
         await db.transaction().execute(async (tx) => {
@@ -1708,16 +2853,14 @@ function registerAdminOperations(
           { offerId: id, vendorId: vendor.id },
           false,
         );
-        res
-          .status(201)
-          .json({
-            id,
-            complianceWarning:
-              vendor.insurance_status !== "Verified" ||
-              vendor.license_status === "Review required"
-                ? "Review vendor license and insurance status before assignment."
-                : null,
-          });
+        res.status(201).json({
+          id,
+          complianceWarning:
+            vendor.insurance_status !== "Verified" ||
+            vendor.license_status === "Review required"
+              ? "Review vendor license and insurance status before assignment."
+              : null,
+        });
       } catch (e) {
         next(e);
       }
@@ -1727,11 +2870,10 @@ function registerAdminOperations(
     "/api/admin/operations/completions/:id/review",
     async (req, res, next) => {
       try {
-      const parsed = z
-        .object({
-          decision: z.enum(["Approved", "Changes Requested"]),
-          customerNote: optionalText(3000),
-          publishMediaIds: z.array(z.string().uuid()).default([]),
+        const parsed = z
+          .object({
+            decision: z.enum(["Approved", "Changes Requested"]),
+            customerNote: optionalText(3000),
           })
           .safeParse(req.body);
         if (!parsed.success)
@@ -1758,14 +2900,21 @@ function registerAdminOperations(
           return res
             .status(404)
             .json({ error: "Completion report not found." });
+        if (completion.status !== "Submitted")
+          return res
+            .status(409)
+            .json({ error: "Only submitted completions can be reviewed." });
         const now = new Date().toISOString(),
           nextStatus =
-            parsed.data.decision === "Approved" ? "completed" : "in_progress";
+            parsed.data.decision === "Approved"
+              ? "awaiting_completion_review"
+              : "in_progress";
         await db.transaction().execute(async (tx) => {
           await tx
             .updateTable("job_completion_reports")
             .set({
               status: parsed.data.decision,
+              customer_completion_notes: parsed.data.customerNote,
               reviewed_at: now,
               updated_at: now,
             })
@@ -1774,6 +2923,182 @@ function registerAdminOperations(
           await tx
             .updateTable("operations_service_requests")
             .set({ status: nextStatus, updated_at: now })
+            .where("id", "=", completion.request_id)
+            .execute();
+          if (parsed.data.decision === "Changes Requested") {
+            await tx
+              .insertInto("operations_notifications")
+              .values({
+                id: randomUUID(),
+                organization_id: null,
+                organization_user_id: null,
+                vendor_id: completion.vendor_id,
+                technician_id: completion.technician_id,
+                request_id: completion.request_id,
+                event_type: "Completion correction requested",
+                message:
+                  `${completion.request_number}: ${parsed.data.customerNote || "TaskCore requested more completion information."}`.slice(
+                    0,
+                    300,
+                  ),
+                read_at: null,
+                created_at: now,
+              })
+              .execute();
+            if (completion.technician_id)
+              await tx
+                .insertInto("technician_job_updates")
+                .values({
+                  id: randomUUID(),
+                  request_id: completion.request_id,
+                  technician_id: completion.technician_id,
+                  update_type: "Owner Correction Requested",
+                  notes: parsed.data.customerNote,
+                  materials_used: "",
+                  material_cost_notes: "",
+                  time_spent_minutes: null,
+                  created_at: now,
+                })
+                .execute();
+          }
+        });
+        await history(
+          db,
+          completion.request_id,
+          "Owner",
+          config.adminUsername,
+          `Completion ${parsed.data.decision.toLowerCase()}`,
+          completion.request_status,
+          nextStatus,
+          {},
+          false,
+        );
+        res.json({ status: nextStatus });
+      } catch (e) {
+        next(e);
+      }
+    },
+  );
+  app.get("/api/admin/operations/completions", async (_req, res, next) => {
+    try {
+      const completions = await db
+        .selectFrom("job_completion_reports")
+        .innerJoin(
+          "operations_service_requests",
+          "operations_service_requests.id",
+          "job_completion_reports.request_id",
+        )
+        .innerJoin(
+          "properties",
+          "properties.id",
+          "operations_service_requests.property_id",
+        )
+        .leftJoin(
+          "technicians",
+          "technicians.id",
+          "job_completion_reports.technician_id",
+        )
+        .leftJoin("vendors", "vendors.id", "job_completion_reports.vendor_id")
+        .selectAll("job_completion_reports")
+        .select([
+          "operations_service_requests.request_number",
+          "operations_service_requests.title",
+          "operations_service_requests.status as request_status",
+          "properties.name as property_name",
+          "properties.address",
+          "technicians.name as technician_name",
+          "vendors.business_name as vendor_name",
+        ])
+        .where("job_completion_reports.status", "in", [
+          "Submitted",
+          "Approved",
+          "Changes Requested",
+        ])
+        .orderBy("job_completion_reports.created_at", "desc")
+        .execute();
+      const requestIds = [...new Set(completions.map((row) => row.request_id))];
+      const media = requestIds.length
+        ? await db
+            .selectFrom("operations_request_media")
+            .selectAll()
+            .where("request_id", "in", requestIds)
+            .orderBy("created_at")
+            .execute()
+        : [];
+      res.json({
+        completions: completions.map((row) => ({
+          ...row,
+          media: media.filter((item) => item.request_id === row.request_id),
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.post(
+    "/api/admin/operations/completions/:id/publish",
+    async (req, res, next) => {
+      try {
+        const parsed = z
+          .object({
+            customerNote: optionalText(3000),
+            publishMediaIds: z.array(z.string().uuid()).max(100).default([]),
+          })
+          .safeParse(req.body);
+        if (!parsed.success)
+          return res
+            .status(400)
+            .json({ error: "Check the publication details." });
+        const completion = await db
+          .selectFrom("job_completion_reports")
+          .innerJoin(
+            "operations_service_requests",
+            "operations_service_requests.id",
+            "job_completion_reports.request_id",
+          )
+          .selectAll("job_completion_reports")
+          .select([
+            "operations_service_requests.status as request_status",
+            "operations_service_requests.property_id",
+            "operations_service_requests.organization_id",
+            "operations_service_requests.request_number",
+          ])
+          .where("job_completion_reports.id", "=", routeParam(req, "id"))
+          .executeTakeFirst();
+        if (!completion)
+          return res
+            .status(404)
+            .json({ error: "Completion report not found." });
+        if (
+          completion.status !== "Approved" ||
+          completion.request_status !== "awaiting_completion_review"
+        )
+          return res
+            .status(409)
+            .json({ error: "Approve this completion before publishing it." });
+        const now = new Date().toISOString();
+        await db.transaction().execute(async (tx) => {
+          if (parsed.data.publishMediaIds.length) {
+            await tx
+              .updateTable("operations_request_media")
+              .set({ visibility: "Customer" })
+              .where("request_id", "=", completion.request_id)
+              .where("id", "in", parsed.data.publishMediaIds)
+              .execute();
+          }
+          await tx
+            .updateTable("job_completion_reports")
+            .set({
+              status: "Published",
+              customer_completion_notes: parsed.data.customerNote,
+              published_at: now,
+              updated_at: now,
+            })
+            .where("id", "=", completion.id)
+            .execute();
+          await tx
+            .updateTable("operations_service_requests")
+            .set({ status: "completed", updated_at: now })
             .where("id", "=", completion.request_id)
             .execute();
           if (parsed.data.customerNote)
@@ -1789,42 +3114,49 @@ function registerAdminOperations(
                 created_at: now,
               })
               .execute();
-          if (parsed.data.decision === "Approved" && parsed.data.publishMediaIds.length)
-            await tx
-              .updateTable("operations_request_media")
-              .set({ visibility: "Customer" })
-              .where("request_id", "=", completion.request_id)
-              .where("id", "in", parsed.data.publishMediaIds)
-              .execute();
-          if (parsed.data.decision === "Approved")
-            await tx
-              .insertInto("property_activity")
-              .values({
-                id: randomUUID(),
-                property_id: completion.property_id,
-                request_id: completion.request_id,
-                inspection_id: null,
-                event_type: "Work completed",
-                summary: `${completion.request_number} completed`,
-                visibility: "Customer",
-                created_at: now,
-              })
-              .execute();
+          await tx
+            .insertInto("property_activity")
+            .values({
+              id: randomUUID(),
+              property_id: completion.property_id,
+              request_id: completion.request_id,
+              inspection_id: null,
+              event_type: "Completion published",
+              summary: `${completion.request_number} work completion was published.`,
+              visibility: "Customer",
+              created_at: now,
+            })
+            .execute();
+          await tx
+            .insertInto("operations_notifications")
+            .values({
+              id: randomUUID(),
+              organization_id: completion.organization_id,
+              organization_user_id: null,
+              vendor_id: null,
+              technician_id: null,
+              request_id: completion.request_id,
+              event_type: "Completion published",
+              message: `${completion.request_number} is complete and its final result is available.`,
+              read_at: null,
+              created_at: now,
+            })
+            .execute();
         });
         await history(
           db,
           completion.request_id,
           "Owner",
           config.adminUsername,
-          `Completion ${parsed.data.decision.toLowerCase()}`,
+          "Completion published",
           completion.request_status,
-          nextStatus,
-          {},
+          "completed",
+          { completionId: completion.id },
           true,
         );
-        res.json({ status: nextStatus });
-      } catch (e) {
-        next(e);
+        res.json({ status: "completed", publishedAt: now });
+      } catch (error) {
+        next(error);
       }
     },
   );
@@ -1877,11 +3209,9 @@ function registerAdminOperations(
           .where("properties.id", "=", finding.property_id)
           .executeTakeFirst();
         if (!organization)
-          return res
-            .status(409)
-            .json({
-              error: "The property is not assigned to that organization.",
-            });
+          return res.status(409).json({
+            error: "The property is not assigned to that organization.",
+          });
         const id = randomUUID(),
           number = await nextRequestNumber(db),
           now = new Date().toISOString();
@@ -2089,6 +3419,114 @@ async function sendScopedMedia(
           .executeTakeFirst(),
       );
     if (!allowed) return res.status(404).json({ error: "Media not found." });
+    if (media.inspection_media_id) {
+      const linked = await db
+        .selectFrom("inspection_media")
+        .selectAll()
+        .where("id", "=", media.inspection_media_id)
+        .executeTakeFirst();
+      if (!linked) return res.status(404).json({ error: "Media not found." });
+      return sendMedia(
+        config,
+        linked.storage_key,
+        linked.mime_type,
+        res,
+        req.get("range"),
+      );
+    }
+    if (!media.storage_key)
+      return res.status(404).json({ error: "Media not found." });
+    await sendMedia(
+      config,
+      media.storage_key,
+      media.mime_type,
+      res,
+      req.get("range"),
+    );
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function uploadTechnicianJobMedia(
+  req: TechnicianRequest,
+  res: express.Response,
+  next: express.NextFunction,
+  db: Kysely<TaskCoreDatabase>,
+  config: AppConfig,
+) {
+  try {
+    const requestId = routeParam(req, "id"),
+      job = await assignedTechnicianJob(db, requestId, req.technician!.id);
+    if (!job) return res.status(404).json({ error: "Assigned job not found." });
+    if (!["assigned", "scheduled", "in_progress"].includes(job.status))
+      return res
+        .status(409)
+        .json({ error: "This job no longer accepts field media." });
+    const purpose = z
+      .enum(["Before", "Progress", "After"])
+      .safeParse(req.query.purpose);
+    if (!purpose.success)
+      return res
+        .status(400)
+        .json({ error: "Choose Before, Progress, or After." });
+    const mimeType = ((req.get("content-type") || "").split(";")[0] || "")
+        .trim()
+        .toLowerCase(),
+      extension = uploadExtension(mimeType);
+    if (!extension || !mimeType.startsWith("image/"))
+      return res.status(415).json({ error: "Upload a supported job photo." });
+    const id = randomUUID(),
+      key = `operations/${requestId}/${id}${extension}`,
+      destination = stagedMediaPath(config, key);
+    if (!destination) throw new Error("Invalid media path.");
+    const size = await receiveUpload(req, destination, config.maxPhotoBytes);
+    await persistMedia(config, key, destination, mimeType);
+    await db
+      .insertInto("operations_request_media")
+      .values({
+        id,
+        request_id: requestId,
+        inspection_media_id: null,
+        storage_key: key,
+        kind: "Photo",
+        purpose: `Technician ${purpose.data}`,
+        file_name: cleanFileName(req.get("x-file-name")),
+        mime_type: mimeType,
+        size_bytes: size,
+        visibility: "Internal",
+        created_at: new Date().toISOString(),
+      })
+      .execute();
+    res.status(201).json({ id, purpose: purpose.data, sizeBytes: size });
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function sendTechnicianJobMedia(
+  req: TechnicianRequest,
+  res: express.Response,
+  next: express.NextFunction,
+  db: Kysely<TaskCoreDatabase>,
+  config: AppConfig,
+) {
+  try {
+    const requestId = routeParam(req, "requestId"),
+      job = await assignedTechnicianJob(db, requestId, req.technician!.id);
+    if (!job) return res.status(404).json({ error: "Assigned job not found." });
+    const media = await db
+      .selectFrom("operations_request_media")
+      .selectAll()
+      .where("request_id", "=", requestId)
+      .where("id", "=", routeParam(req, "mediaId"))
+      .executeTakeFirst();
+    if (
+      !media ||
+      (media.visibility !== "Customer" &&
+        !media.purpose.startsWith("Technician "))
+    )
+      return res.status(404).json({ error: "Media not found." });
     if (media.inspection_media_id) {
       const linked = await db
         .selectFrom("inspection_media")
