@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./property-admin.css">
   <script src="./admin.js" defer></script>
   <script src="./inspection-admin.js" defer></script>
+  <script src="./operations-admin.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#requests">Skip to requests</a>
@@ -20,7 +21,9 @@
     </div>
   </header>
   <main class="shell" id="requests">
-    <nav class="admin-nav"><a href="#inspections">Inspection review</a><a href="#service-requests">Service requests</a><a href="#setup">Portal setup</a><a href="../tech/">Technician portal</a></nav>
+    <nav class="admin-nav"><a href="#dispatch">Dispatch</a><a href="#inspections">Inspection review</a><a href="#service-requests">Legacy requests</a><a href="#setup">Portal setup</a><a href="../manager/">Property Manager portal</a><a href="../contractor/">Contractor portal</a><a href="../tech/">Technician portal</a></nav>
+    <section id="dispatch" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">TaskCore intermediary</p><h2>Incoming requests and dispatch</h2></div><button id="refresh-dispatch" type="button">Refresh dispatch</button></div><div id="dispatch-list" class="inspection-list"></div></section>
+    <section id="operations-setup" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Role administration</p><h2>Property managers and contractors</h2></div></div><div class="setup-grid"><form id="organization-form" class="setup-form"><h3>Add Property Manager organization</h3><label><span>Organization</span><input name="name" required></label><label><span>Contact name</span><input name="contactName" required></label><label><span>Contact email</span><input name="email" type="email" required></label><label><span>Manager name</span><input name="managerName" required></label><label><span>Manager email</span><input name="managerEmail" type="email" required></label><label><span>Temporary password</span><input name="managerPassword" type="password" minlength="10" required></label><button>Create organization</button><output></output></form><form id="vendor-form" class="setup-form"><h3>Add contractor</h3><label><span>Business/person</span><input name="businessName" required></label><label><span>Contact</span><input name="contactName" required></label><label><span>Email</span><input name="email" type="email" required></label><label><span>Temporary password</span><input name="password" type="password" minlength="10" required></label><label><span>Internal compliance note</span><textarea name="internalNotes"></textarea></label><button>Create contractor</button><output></output></form></div><div id="operations-setup-summary" class="setup-summary"></div></section>
     <section id="inspections" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Review queue</p><h2>Property inspections</h2></div><button id="refresh-inspections" type="button">Refresh inspections</button></div><p id="inspection-status" class="page-status" role="status"></p><div id="inspection-list" class="inspection-list"></div></section>
     <section id="service-requests" class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Customer intake</p><h2>Service requests</h2></div></div>
     <p class="page-status" id="page-status" role="status" aria-live="polite">Loading requests…</p>

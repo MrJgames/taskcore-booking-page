@@ -11,6 +11,7 @@ import { createAdminAuth } from "./auth.js";
 import type { TaskCoreDatabase } from "./types.js";
 import { adminUpdateSchema, serviceRequestSchema } from "./validation.js";
 import { registerInspectionRoutes } from "./inspections.js";
+import { registerOperationsRoutes } from "./operations.js";
 
 const adminDirectory = fileURLToPath(new URL("../public/", import.meta.url));
 const adminIndex = path.join(adminDirectory, "index.html");
@@ -172,6 +173,7 @@ export function createApp(config: AppConfig, db: Kysely<TaskCoreDatabase>) {
   });
   app.use("/admin", adminAuth, express.static(adminDirectory, { index: false, dotfiles: "deny" }));
 
+  registerOperationsRoutes(app, config, db);
   registerInspectionRoutes(app, config, db);
 
   app.use((_request, response) => response.status(404).json({ error: "Not found." }));
