@@ -660,6 +660,33 @@ describe("property operations platform", () => {
     }
   });
 
+  it("supports idempotent technician-created diagnostic and quote tasks without authorizing quote work", async () => {
+    const { app, db, auth } = await testPortal();
+    try {
+      const org = await organization(app, auth, "FieldTask");
+      await request(app).post("/api/admin/technicians").set("Authorization", auth).send({ name: "Field Tech", email: "field-task@example.com", password: "field-password-123" }).expect(201);
+      const login = await request(app).post("/api/tech/login").send({ email: "field-task@example.com", password: "field-password-123" }).expect(200);
+      const cookie = sessionCookie(login, "taskcore_tech_session"), operationId = randomUUID();
+      const created = await request(app).post("/api/tech/tasks").set("Cookie", cookie).send({ operationId, taskType: "Quote / Estimate Request", propertyId: org.propertyId, title: "Quote leaking valve", description: "Inspect and price the repair.", priority: "Soon" }).expect(201);
+      await request(app).post("/api/tech/tasks").set("Cookie", cookie).send({ operationId, taskType: "Quote / Estimate Request", propertyId: org.propertyId, title: "Quote leaking valve", description: "Inspect and price the repair.", priority: "Soon" }).expect(200).expect(({ body }) => expect(body.duplicate).toBe(true));
+      await request(app).put(`/api/tech/tasks/${created.body.id}`).set("Cookie", cookie).send({ findings: "Valve stem is leaking.", measurementsNotes: "Half-inch supply.", recommendedRepair: "Replace valve.", specialistNeeded: false, estimatedLaborHours: 1.5, estimatedMaterials: "Valve and supply line", estimatedMaterialCost: 75, proposedLabor: 250, proposedTotal: 325 }).expect(200);
+      await request(app).post(`/api/tech/tasks/${created.body.id}/submit`).set("Cookie", cookie).expect(400).expect(/photo or video/);
+      await request(app).post(`/api/tech/jobs/${created.body.id}/media?purpose=Task`).set("Cookie", cookie).set("Content-Type", "image/jpeg").set("X-File-Name", "valve.jpg").send(Buffer.from("photo")).expect(201);
+      await request(app).post(`/api/tech/tasks/${created.body.id}/submit`).set("Cookie", cookie).expect(200).expect(({ body }) => expect(body.status).toBe("Owner Review"));
+      await request(app).post(`/api/tech/tasks/${created.body.id}/submit`).set("Cookie", cookie).expect(200).expect(({ body }) => expect(body.duplicate).toBe(true));
+      const before = await db.selectFrom("operations_service_requests").select("status").where("id", "=", created.body.id).executeTakeFirstOrThrow();
+      expect(before.status).toBe("owner_review");
+      await request(app).post(`/api/admin/operations/requests/${created.body.id}/technician-task-review`).set("Authorization", auth).send({ action: "Approve Work", customerPrice: 450, note: "Approved for scheduling." }).expect(200);
+      const detail = await db.selectFrom("technician_task_details").selectAll().where("request_id", "=", created.body.id).executeTakeFirstOrThrow();
+      expect(detail).toMatchObject({ proposed_labor_cents: 25000, estimated_material_cost_cents: 7500, proposed_total_cents: 32500, customer_price_cents: 45000, review_status: "Approved" });
+
+      const unknownOperation = randomUUID();
+      const unknown = await request(app).post("/api/tech/tasks").set("Cookie", cookie).send({ operationId: unknownOperation, taskType: "Diagnose / Check Issue", property: { name: "Unknown Field Home", streetAddress: "987 QA Avenue", city: "Indio", state: "CA", postalCode: "92201" }, title: "Check reported damage", description: "Document condition.", priority: "Routine" }).expect(201);
+      expect(unknown.body.assignmentStatus).toBe("Pending Client Assignment");
+      await request(app).post("/api/tech/tasks").set("Cookie", cookie).send({ operationId: randomUUID(), taskType: "Diagnose / Check Issue", property: { name: "Duplicate", streetAddress: "987 QA Ave.", city: "Indio", state: "CA", postalCode: "92201" }, title: "Duplicate", description: "Duplicate address.", priority: "Routine" }).expect(409);
+    } finally { await db.destroy(); }
+  });
+
   it("creates a linked request from an inspection finding without duplicating inspection media", async () => {
     const { app, db, auth } = await testPortal();
     try {

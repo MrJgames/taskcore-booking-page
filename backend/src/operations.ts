@@ -22,6 +22,8 @@ import {
 } from "./media.js";
 import {
   OPERATIONS_REQUEST_STATUSES,
+  PENDING_PROPERTY_ASSIGNMENT,
+  SYSTEM_UNASSIGNED_CLIENT_ID,
   type OperationsRequestStatus,
   type TaskCoreDatabase,
 } from "./types.js";
@@ -37,6 +39,23 @@ const sharedOperationsStyles = fileURLToPath(
 );
 const text = (max: number) => z.string().trim().min(1).max(max);
 const optionalText = (max: number) => z.string().trim().max(max).default("");
+const technicianTaskType = z.enum([
+  "Diagnose / Check Issue",
+  "Quote / Estimate Request",
+  "Approved Service Call",
+]);
+const technicianTaskDraft = z.object({
+  operationId: z.string().uuid().optional(),
+  findings: optionalText(5000),
+  measurementsNotes: optionalText(3000),
+  recommendedRepair: optionalText(5000),
+  specialistNeeded: z.boolean().default(false),
+  estimatedLaborHours: z.number().min(0).max(1000).nullable().optional(),
+  estimatedMaterials: optionalText(3000),
+  estimatedMaterialCost: z.number().min(0).max(1_000_000).nullable().optional(),
+  proposedLabor: z.number().min(0).max(1_000_000).nullable().optional(),
+  proposedTotal: z.number().min(0).max(1_000_000).nullable().optional(),
+});
 const loginSchema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(10).max(200),
@@ -968,6 +987,7 @@ export function registerOperationsRoutes(
             "properties.id",
             "operations_service_requests.property_id",
           )
+          .leftJoin("technician_task_details", "technician_task_details.request_id", "operations_service_requests.id")
           .select([
             "contractor_offers.id",
             "contractor_offers.request_id",
@@ -983,6 +1003,9 @@ export function registerOperationsRoutes(
             "operations_service_requests.occupancy_status",
             "properties.name as property_name",
             "properties.address",
+            "technician_task_details.task_type",
+            "technician_task_details.review_status",
+            "technician_task_details.submitted_at as task_submitted_at",
           ])
           .where("contractor_offers.vendor_id", "=", p.id)
           .orderBy("contractor_offers.created_at", "desc")
@@ -1260,6 +1283,7 @@ export function registerOperationsRoutes(
             "operations_service_requests.occupancy_status",
             "operations_service_requests.preferred_service_window",
             "operations_service_requests.scheduled_at",
+            "operations_service_requests.updated_at",
             "properties.name as property_name",
             "properties.address",
           ])
@@ -1283,7 +1307,7 @@ export function registerOperationsRoutes(
         );
         if (!job)
           return res.status(404).json({ error: "Assigned job not found." });
-        const [allMedia, updates, completion] = await Promise.all([
+        const [allMedia, updates, completion, task] = await Promise.all([
           db
             .selectFrom("operations_request_media")
             .select([
@@ -1329,13 +1353,14 @@ export function registerOperationsRoutes(
             .where("technician_id", "=", req.technician!.id)
             .orderBy("created_at", "desc")
             .executeTakeFirst(),
+          db.selectFrom("technician_task_details").selectAll().where("request_id", "=", job.id).executeTakeFirst(),
         ]);
         const media = allMedia.filter(
           (item) =>
             item.visibility === "Customer" ||
             item.purpose.startsWith("Technician "),
         );
-        res.json({ job, media, updates, completion });
+        res.json({ job, media, updates, completion, task });
       } catch (e) {
         next(e);
       }
@@ -1679,6 +1704,82 @@ export function registerOperationsRoutes(
     async (req: TechnicianRequest, res, next) =>
       sendTechnicianJobMedia(req, res, next, db, config),
   );
+
+  app.post("/api/tech/tasks", techAuth, async (req: TechnicianRequest, res, next) => {
+    try {
+      const parsed = z.object({
+        operationId: z.string().uuid(),
+        taskType: technicianTaskType,
+        propertyId: z.string().uuid().optional(),
+        property: z.object({ name: text(140), streetAddress: text(160), city: text(100), state: z.string().trim().length(2), postalCode: z.string().trim().regex(/^\d{5}(?:-\d{4})?$/) }).optional(),
+        title: text(160), description: text(5000), priority: z.enum(["Routine", "Soon", "Urgent"]).default("Routine"),
+      }).refine((value) => Boolean(value.propertyId || value.property), { message: "Choose a property or enter its address." }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Check the property and task details." });
+      const prior = await db.selectFrom("technician_task_details").select("request_id").where("operation_id", "=", parsed.data.operationId).executeTakeFirst();
+      if (prior) return res.status(200).json({ id: prior.request_id, duplicate: true });
+      const now = new Date().toISOString();
+      let property = parsed.data.propertyId ? await db.selectFrom("properties").selectAll().where("id", "=", parsed.data.propertyId).where("active", "=", 1).executeTakeFirst() : undefined;
+      if (!property && parsed.data.property) {
+        const address = `${parsed.data.property.streetAddress.trim()}, ${parsed.data.property.city.trim()}, ${parsed.data.property.state.toUpperCase()} ${parsed.data.property.postalCode}`;
+        const normalizeAddress = (value: string) => value.toLowerCase().replace(/\bstreet\b/g, "st").replace(/\broad\b/g, "rd").replace(/\bavenue\b/g, "ave").replace(/\bboulevard\b/g, "blvd").replace(/\bdrive\b/g, "dr").replace(/\blane\b/g, "ln").replace(/[.,#]/g, "").replace(/\s+/g, " ").trim();
+        const normalized = normalizeAddress(address);
+        const existing = (await db.selectFrom("properties").select(["id", "name", "address"]).where("active", "=", 1).execute()).find((item) => normalizeAddress(item.address) === normalized);
+        if (existing) return res.status(409).json({ error: `This address already exists as ${existing.name}.` });
+        property = { id: randomUUID(), client_id: SYSTEM_UNASSIGNED_CLIENT_ID, name: parsed.data.property.name, address, active: 1, created_at: now };
+        await db.transaction().execute(async (tx) => {
+          await tx.insertInto("properties").values(property!).execute();
+          await tx.insertInto("property_audit_events").values({ id: randomUUID(), property_id: property!.id, actor_type: "Technician", actor_id: req.technician!.id, action: "Created", details_json: JSON.stringify({ name: property!.name, address, source: "Service task" }), created_at: now }).execute();
+          await tx.insertInto("property_notifications").values({ id: randomUUID(), property_id: property!.id, message: `${req.technician!.name} added ${property!.name} for owner assignment.`, delivery_status: "dashboard", read_at: null, created_at: now }).execute();
+        });
+      }
+      if (!property) return res.status(404).json({ error: "Property not found." });
+      let organization = await db.selectFrom("organizations").select("id").where("client_id", "=", property.client_id).executeTakeFirst();
+      if (!organization) {
+        organization = { id: randomUUID() };
+        await db.insertInto("organizations").values({ id: organization.id, client_id: property.client_id, name: property.client_id === SYSTEM_UNASSIGNED_CLIENT_ID ? "Pending client assignment" : property.name, created_at: now, updated_at: now }).execute();
+      }
+      const id = randomUUID(), number = await nextRequestNumber(db);
+      await db.transaction().execute(async (tx) => {
+        await tx.insertInto("operations_service_requests").values({ id, request_number: number, organization_id: organization!.id, property_id: property!.id, created_by_user_id: null, inspection_id: null, finding_id: null, title: parsed.data.title, category: "Field Service", description: parsed.data.description, priority: parsed.data.priority, status: "in_progress", permission_to_enter: 0, occupancy_status: "Unknown", preferred_service_date: null, preferred_service_window: "", spending_limit_cents: null, access_instructions: "", customer_notes: "", internal_notes: "Contractor-created task", technician_notes: "", channel_id: null, assigned_technician_id: req.technician!.id, assigned_vendor_id: null, scheduled_at: null, created_at: now, updated_at: now }).execute();
+        await tx.insertInto("technician_task_details").values({ request_id: id, task_type: parsed.data.taskType, findings: "", measurements_notes: "", recommended_repair: "", specialist_needed: 0, estimated_labor_hours: null, estimated_materials: "", estimated_material_cost_cents: null, proposed_labor_cents: null, proposed_total_cents: null, customer_price_cents: null, review_status: "Draft", operation_id: parsed.data.operationId, submitted_at: null, created_at: now, updated_at: now }).execute();
+      });
+      await history(db, id, "Technician", req.technician!.id, "Task created", null, "in_progress", { taskType: parsed.data.taskType }, false);
+      res.status(201).json({ id, requestNumber: number, assignmentStatus: property.client_id === SYSTEM_UNASSIGNED_CLIENT_ID ? PENDING_PROPERTY_ASSIGNMENT : "Assigned" });
+    } catch (e) { next(e); }
+  });
+
+  app.put("/api/tech/tasks/:id", techAuth, async (req: TechnicianRequest, res, next) => {
+    try {
+      const parsed = technicianTaskDraft.safeParse(req.body); if (!parsed.success) return res.status(400).json({ error: "Check the task details." });
+      const job = await assignedTechnicianJob(db, routeParam(req, "id"), req.technician!.id); if (!job) return res.status(404).json({ error: "Task not found." });
+      const detail = await db.selectFrom("technician_task_details").selectAll().where("request_id", "=", job.id).executeTakeFirst();
+      if (!detail || detail.submitted_at) return res.status(409).json({ error: "This task can no longer be edited." });
+      const now = new Date().toISOString();
+      await db.updateTable("technician_task_details").set({ findings: parsed.data.findings, measurements_notes: parsed.data.measurementsNotes, recommended_repair: parsed.data.recommendedRepair, specialist_needed: parsed.data.specialistNeeded ? 1 : 0, estimated_labor_hours: parsed.data.estimatedLaborHours ?? null, estimated_materials: parsed.data.estimatedMaterials, estimated_material_cost_cents: parsed.data.estimatedMaterialCost == null ? null : Math.round(parsed.data.estimatedMaterialCost * 100), proposed_labor_cents: parsed.data.proposedLabor == null ? null : Math.round(parsed.data.proposedLabor * 100), proposed_total_cents: parsed.data.proposedTotal == null ? null : Math.round(parsed.data.proposedTotal * 100), updated_at: now }).where("request_id", "=", job.id).execute();
+      await history(db, job.id, "Technician", req.technician!.id, "Task draft saved", job.status, job.status, {}, false);
+      res.json({ savedAt: now });
+    } catch (e) { next(e); }
+  });
+
+  app.post("/api/tech/tasks/:id/submit", techAuth, async (req: TechnicianRequest, res, next) => {
+    try {
+      const job = await assignedTechnicianJob(db, routeParam(req, "id"), req.technician!.id); if (!job) return res.status(404).json({ error: "Task not found." });
+      const detail = await db.selectFrom("technician_task_details").selectAll().where("request_id", "=", job.id).executeTakeFirst(); if (!detail) return res.status(404).json({ error: "Task details not found." });
+      if (detail.submitted_at) return res.json({ status: "Owner Review", duplicate: true });
+      if (!detail.findings.trim()) return res.status(400).json({ error: "Add your findings before submitting." });
+      const media = await db.selectFrom("operations_request_media").select("id").where("request_id", "=", job.id).where("kind", "in", ["Photo", "Video"]).executeTakeFirst();
+      if (!media) return res.status(400).json({ error: "Add at least one photo or video before submitting." });
+      if (detail.task_type === "Quote / Estimate Request" && (detail.proposed_total_cents === null || !detail.recommended_repair.trim())) return res.status(400).json({ error: "Add the recommended repair and proposed total before submitting the quote." });
+      const now = new Date().toISOString();
+      await db.transaction().execute(async (tx) => {
+        await tx.updateTable("technician_task_details").set({ review_status: "Owner Review", submitted_at: now, updated_at: now }).where("request_id", "=", job.id).execute();
+        await tx.updateTable("operations_service_requests").set({ status: "owner_review", updated_at: now }).where("id", "=", job.id).execute();
+        await tx.insertInto("operations_notifications").values({ id: randomUUID(), organization_id: null, organization_user_id: null, vendor_id: null, request_id: job.id, event_type: "Technician task review", message: `${req.technician!.name} submitted ${job.request_number} for owner review.`, read_at: null, created_at: now }).execute();
+      });
+      await history(db, job.id, "Technician", req.technician!.id, detail.task_type === "Quote / Estimate Request" ? "Quote submitted" : "Task submitted", job.status, "owner_review", {}, false);
+      res.json({ status: "Owner Review", submittedAt: now });
+    } catch (e) { next(e); }
+  });
 }
 
 function registerAdminOperations(
@@ -2277,6 +2378,7 @@ function registerAdminOperations(
           "vendors.id",
           "operations_service_requests.assigned_vendor_id",
         )
+        .leftJoin("technician_task_details", "technician_task_details.request_id", "operations_service_requests.id")
         .selectAll("operations_service_requests")
         .select([
           "organizations.name as organization_name",
@@ -2285,6 +2387,18 @@ function registerAdminOperations(
           "work_channels.name as channel_name",
           "technicians.name as technician_name",
           "vendors.business_name as vendor_name",
+          "technician_task_details.task_type",
+          "technician_task_details.findings as task_findings",
+          "technician_task_details.measurements_notes as task_measurements_notes",
+          "technician_task_details.recommended_repair as task_recommended_repair",
+          "technician_task_details.specialist_needed as task_specialist_needed",
+          "technician_task_details.estimated_labor_hours as task_estimated_labor_hours",
+          "technician_task_details.estimated_materials as task_estimated_materials",
+          "technician_task_details.estimated_material_cost_cents as task_material_cost_cents",
+          "technician_task_details.proposed_labor_cents as task_proposed_labor_cents",
+          "technician_task_details.proposed_total_cents as task_proposed_total_cents",
+          "technician_task_details.customer_price_cents as task_customer_price_cents",
+          "technician_task_details.review_status as task_review_status",
         ]);
       const value = (name: string) =>
         typeof req.query[name] === "string"
@@ -2658,6 +2772,36 @@ function registerAdminOperations(
       } catch (e) {
         next(e);
       }
+    },
+  );
+  app.post(
+    "/api/admin/operations/requests/:id/technician-task-review",
+    async (req, res, next) => {
+      try {
+        const parsed = z.object({
+          action: z.enum(["Approve Work", "Request Changes", "Request More Information", "Decline"]),
+          note: optionalText(3000),
+          customerPrice: z.number().min(0).max(1_000_000).nullable().optional(),
+        }).safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ error: "Check the review decision." });
+        const requestId = routeParam(req, "id");
+        const [row, task] = await Promise.all([
+          db.selectFrom("operations_service_requests").selectAll().where("id", "=", requestId).executeTakeFirst(),
+          db.selectFrom("technician_task_details").selectAll().where("request_id", "=", requestId).executeTakeFirst(),
+        ]);
+        if (!row || !task) return res.status(404).json({ error: "Technician task not found." });
+        if (task.review_status !== "Owner Review") return res.status(409).json({ error: "This task is not awaiting owner review." });
+        const requestStatus: OperationsRequestStatus = parsed.data.action === "Approve Work" ? "approved" : parsed.data.action === "Decline" ? "declined" : "needs_information";
+        const reviewStatus = parsed.data.action === "Approve Work" ? "Approved" : parsed.data.action === "Decline" ? "Declined" : "More Information Requested";
+        const now = new Date().toISOString();
+        await db.transaction().execute(async (tx) => {
+          await tx.updateTable("technician_task_details").set({ review_status: reviewStatus, submitted_at: requestStatus === "needs_information" ? null : task.submitted_at, customer_price_cents: parsed.data.customerPrice == null ? task.customer_price_cents : Math.round(parsed.data.customerPrice * 100), updated_at: now }).where("request_id", "=", requestId).execute();
+          await tx.updateTable("operations_service_requests").set({ status: requestStatus, internal_notes: parsed.data.note || row.internal_notes, updated_at: now }).where("id", "=", requestId).execute();
+          await tx.insertInto("operations_notifications").values({ id: randomUUID(), organization_id: null, organization_user_id: null, vendor_id: null, request_id: requestId, event_type: "Technician task reviewed", message: `${row.request_number}: ${parsed.data.action}.`, read_at: null, created_at: now }).execute();
+        });
+        await history(db, requestId, "Owner", config.adminUsername, parsed.data.action, row.status, requestStatus, { note: parsed.data.note }, false);
+        res.json({ status: reviewStatus });
+      } catch (e) { next(e); }
     },
   );
   app.post(
@@ -3464,23 +3608,23 @@ async function uploadTechnicianJobMedia(
         .status(409)
         .json({ error: "This job no longer accepts field media." });
     const purpose = z
-      .enum(["Before", "Progress", "After"])
+      .enum(["Before", "Progress", "After", "Task"])
       .safeParse(req.query.purpose);
     if (!purpose.success)
       return res
         .status(400)
-        .json({ error: "Choose Before, Progress, or After." });
+        .json({ error: "Choose Before, Progress, After, or Task." });
     const mimeType = ((req.get("content-type") || "").split(";")[0] || "")
         .trim()
         .toLowerCase(),
       extension = uploadExtension(mimeType);
-    if (!extension || !mimeType.startsWith("image/"))
-      return res.status(415).json({ error: "Upload a supported job photo." });
+    if (!extension || (!mimeType.startsWith("image/") && !(purpose.data === "Task" && mimeType.startsWith("video/"))))
+      return res.status(415).json({ error: "Upload a supported job photo or task video." });
     const id = randomUUID(),
       key = `operations/${requestId}/${id}${extension}`,
       destination = stagedMediaPath(config, key);
     if (!destination) throw new Error("Invalid media path.");
-    const size = await receiveUpload(req, destination, config.maxPhotoBytes);
+    const size = await receiveUpload(req, destination, mimeType.startsWith("video/") ? config.maxVideoBytes : config.maxPhotoBytes);
     await persistMedia(config, key, destination, mimeType);
     await db
       .insertInto("operations_request_media")
@@ -3489,7 +3633,7 @@ async function uploadTechnicianJobMedia(
         request_id: requestId,
         inspection_media_id: null,
         storage_key: key,
-        kind: "Photo",
+        kind: mimeType.startsWith("video/") ? "Video" : "Photo",
         purpose: `Technician ${purpose.data}`,
         file_name: cleanFileName(req.get("x-file-name")),
         mime_type: mimeType,

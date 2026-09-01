@@ -102,10 +102,10 @@ describe("admin request management", () => {
 
   it("serves the technician index and its relative assets", async () => {
     const { app } = await testApp();
-    await request(app).get("/tech/").expect("Content-Type", /html/).expect(/Technician sign in/).expect(200);
+    await request(app).get("/tech/").expect("Content-Type", /html/).expect(/Technician sign in/).expect(/New task \/ service call/i).expect(/Continue current job/i).expect(200);
     await request(app).get("/tech/tech.css").expect("Content-Type", /css/).expect(200);
     await request(app).get("/tech/property.css").expect("Content-Type", /css/).expect(200);
-    await request(app).get("/tech/tech.js").expect("Content-Type", /javascript/).expect(200);
+    await request(app).get("/tech/tech.js").expect("Content-Type", /javascript/).expect(/api\/tech\/tasks/).expect(/Offline — saved on device/).expect(200);
   });
 
   it("completes the submission, listing, and status update flow", async () => {

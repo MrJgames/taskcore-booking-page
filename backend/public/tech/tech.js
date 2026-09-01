@@ -7,10 +7,14 @@
       home: $("#home-view"),
       editor: $("#editor-view"),
       job: $("#job-view"),
+      task: $("#task-view"),
     };
   let current = null,
     currentJob = null,
-    clients = [];
+    clients = [],
+    taskStep = 1,
+    inspectionStep = 1,
+    taskSaveTimer = null;
   const templates = {
     Arrival: [
       [
@@ -290,13 +294,22 @@
       clients
         .map((x) => `<option value="${x.id}">${esc(x.company_name)}</option>`)
         .join("");
+    $("#new-task-form select[name=propertyId]").innerHTML = '<option value="">Add an address — owner assignment</option>' + p.properties
+      .map((x) => `<option value="${x.id}">${esc(x.name)} — ${esc(x.address)}</option>`)
+      .join("");
+    const activeInspections = i.inspections.filter((x) => ["Draft", "Needs Changes"].includes(x.status));
+    const completedInspections = i.inspections.filter((x) => !["Draft", "Needs Changes"].includes(x.status));
+    const activeJobs = j.jobs.filter((x) => ["assigned", "scheduled", "in_progress", "needs_information"].includes(x.status));
+    const completedJobs = j.jobs.filter((x) => ["owner_review", "awaiting_completion_review", "completed", "closed", "declined"].includes(x.status));
+    $("#active-count").textContent = `${activeInspections.length + activeJobs.length} active`;
+    $("#completed-count").textContent = `${completedInspections.length + completedJobs.length} recent`;
     $("#inspection-list").innerHTML =
-      i.inspections
+      activeInspections
         .map(
           (x) =>
             `<button class="card" data-id="${x.id}"><span class="badge">${esc(x.status)}</span><strong>${esc(x.property_name)}</strong><span>${esc(x.inspection_type)} · ${esc(x.address)}</span></button>`,
         )
-        .join("") || "<p>No inspections yet.</p>";
+        .join("") || "";
     $$(".card").forEach(
       (x) => (x.onclick = () => openInspection(x.dataset.id)),
     );
@@ -314,15 +327,18 @@
       )
       .join(" ");
     $("#job-list").innerHTML =
-      j.jobs
+      activeJobs
         .map(
           (job) =>
-            `<button class="card job-card" data-job="${job.id}"><span class="badge">${esc(job.status.replaceAll("_", " "))}</span><strong>${esc(job.request_number)} · ${esc(job.title)}</strong><span>${esc(job.property_name)} · ${esc(job.address)}</span><span>${esc(job.priority)} · ${esc(job.category)}</span></button>`,
+            `<button class="card job-card" data-job="${job.id}" data-task="${job.task_type ? "true" : "false"}"><span class="badge">${esc(job.review_status || job.status.replaceAll("_", " "))}</span><strong>${esc(job.title)}</strong><span>${esc(job.property_name)} · ${esc(job.address)}</span><span>${esc(job.task_type || "Assigned service call")}</span></button>`,
         )
         .join("") || "<p>No assigned service jobs.</p>";
     $$(".job-card").forEach(
-      (button) => (button.onclick = () => openJob(button.dataset.job)),
+      (button) => (button.onclick = () => button.dataset.task === "true" ? openTask(button.dataset.job) : openJob(button.dataset.job)),
     );
+    $("#completed-list").innerHTML = [...completedInspections.map((x) => ({ id: x.id, kind: "inspection", title: `${x.inspection_type} inspection`, property: x.property_name, status: x.status, date: x.updated_at })), ...completedJobs.map((x) => ({ id: x.id, kind: x.task_type ? "task" : "job", title: x.task_type || x.title, property: x.property_name, status: x.review_status || x.status, date: x.updated_at }))]
+      .sort((a,b) => String(b.date).localeCompare(String(a.date))).map((x) => `<button class="card completed-card" data-kind="${x.kind}" data-id="${x.id}"><strong>${esc(x.property)}</strong><span>${esc(x.title)} · ${esc(x.status)}</span><span>${new Date(x.date).toLocaleDateString()}</span></button>`).join("") || "<p>No completed jobs yet.</p>";
+    $$(".completed-card").forEach((button) => button.onclick = () => button.dataset.kind === "inspection" ? openInspection(button.dataset.id) : button.dataset.kind === "task" ? openTask(button.dataset.id) : openJob(button.dataset.id));
   }
   async function openJob(id) {
     const data = await api(`../api/tech/jobs/${id}`);
@@ -363,6 +379,60 @@
       (control) => (control.disabled = data.job.status !== "in_progress"),
     );
     scrollTo(0, 0);
+  }
+  function taskDraft() {
+    const values = Object.fromEntries(new FormData($("#task-form")));
+    for (const key of ["estimatedLaborHours", "estimatedMaterialCost", "proposedLabor", "proposedTotal"])
+      values[key] = values[key] === "" ? null : Number(values[key]);
+    values.specialistNeeded = $("[name=specialistNeeded]").checked;
+    values.operationId = crypto.randomUUID();
+    return values;
+  }
+  function renderTaskStep() {
+    const isQuote = currentJob.task.task_type === "Quote / Estimate Request";
+    $$(".task-step").forEach((step) => {
+      const number = Number(step.dataset.taskStep);
+      step.hidden = number !== taskStep || (number === 4 && !isQuote);
+    });
+    if (!isQuote && taskStep === 4) taskStep = 5;
+    $("#task-step-label").textContent = `Step ${taskStep} of 6`;
+    $("#task-progress").value = taskStep;
+    $("#task-back").disabled = taskStep === 1;
+    $("#task-next").hidden = taskStep === 6;
+    if (taskStep === 5) {
+      const d = taskDraft();
+      $("#task-review").innerHTML = `<p><strong>Findings</strong><br>${esc(d.findings || "Not entered")}</p><p><strong>Recommended next step</strong><br>${esc(d.recommendedRepair || "Not entered")}</p><p><strong>Media</strong><br>${currentJob.media.length} attached</p>${isQuote ? `<p><strong>Proposed total</strong><br>$${Number(d.proposedTotal || 0).toFixed(2)}</p><p class="callout">This is a quote for TaskCore review. Work is not authorized by submission.</p>` : ""}`;
+    }
+  }
+  async function saveTask(quiet = true) {
+    if (!currentJob?.task || currentJob.task.submitted_at) return;
+    const cacheKey = `taskcore-task-${currentJob.job.id}`;
+    const payload = taskDraft();
+    localStorage.setItem(cacheKey, JSON.stringify(payload));
+    if (!quiet) $("#task-status").textContent = "Saving…";
+    try {
+      await api(`../api/tech/tasks/${currentJob.job.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      localStorage.removeItem(cacheKey);
+      $("#task-status").textContent = "Saved";
+    } catch (error) {
+      $("#task-status").textContent = navigator.onLine ? error.message : "Offline — saved on device";
+    }
+  }
+  async function openTask(id) {
+    const data = await api(`../api/tech/jobs/${id}`);
+    if (!data.task) return openJob(id);
+    currentJob = data; taskStep = 1; show("task");
+    $("#task-type").textContent = `${data.task.task_type} · ${data.task.review_status}`;
+    $("#task-title").textContent = data.job.title;
+    $("#task-location").textContent = `${data.job.property_name} · ${data.job.address}`;
+    const recovered = JSON.parse(localStorage.getItem(`taskcore-task-${id}`) || "null") || {};
+    const values = { findings: data.task.findings, measurementsNotes: data.task.measurements_notes, recommendedRepair: data.task.recommended_repair, specialistNeeded: Boolean(data.task.specialist_needed), estimatedLaborHours: data.task.estimated_labor_hours, estimatedMaterials: data.task.estimated_materials, estimatedMaterialCost: data.task.estimated_material_cost_cents == null ? "" : data.task.estimated_material_cost_cents / 100, proposedLabor: data.task.proposed_labor_cents == null ? "" : data.task.proposed_labor_cents / 100, proposedTotal: data.task.proposed_total_cents == null ? "" : data.task.proposed_total_cents / 100, ...recovered };
+    for (const [name, value] of Object.entries(values)) { const control = $(`[name=${name}]`); if (!control) continue; if (control.type === "checkbox") control.checked = Boolean(value); else control.value = value ?? ""; }
+    $("#task-media-list").innerHTML = data.media.map((item) => `<p>${esc(item.kind)} · ${esc(item.file_name)}</p>`).join("") || "<p>No photos or videos yet.</p>";
+    const editable = !data.task.submitted_at && ["in_progress", "needs_information"].includes(data.job.status);
+    $$("input,textarea,select,button", $("#task-form")).forEach((control) => control.disabled = !editable);
+    $("#task-status").textContent = recovered.findings ? "Your unfinished work was restored." : editable ? "Saved" : `Submitted · ${data.task.review_status}`;
+    renderTaskStep(); scrollTo(0, 0);
   }
   function photoCount(key, findingId) {
     return current.media.filter(
@@ -437,6 +507,20 @@
         }),
     );
   }
+  function renderInspectionStep() {
+    const questionSections = $$(".check-section");
+    questionSections.forEach((section, index) => {
+      const step = 2 + Math.min(2, Math.floor(index * 3 / Math.max(1, questionSections.length)));
+      section.hidden = inspectionStep !== step && inspectionStep !== 7;
+    });
+    const panels = $$("#inspection-form > .panel");
+    panels.forEach((panel, index) => panel.hidden = inspectionStep !== (index < 1 ? 5 : 6) && inspectionStep !== 7);
+    $("#inspection-step-back").disabled = inspectionStep === 1;
+    $("#inspection-step-next").hidden = inspectionStep === 7;
+    $("#save-draft").hidden = inspectionStep === 7;
+    $("#inspection-form > .sticky-actions button[type=submit]").hidden = inspectionStep !== 7;
+    $("#editor-status").textContent = `Step ${inspectionStep} of 7${inspectionStep === 1 ? " · Confirm the property above" : inspectionStep === 5 ? " · Photos and walkthrough" : inspectionStep === 6 ? " · Findings and notes" : inspectionStep === 7 ? " · Review and submit" : ""}`;
+  }
   async function upload(file, category, link = {}) {
     if (!file) return;
     const q = new URLSearchParams({ category, ...link });
@@ -452,6 +536,7 @@
     history.replaceState(null, "", `#inspection-${id}`);
     const { inspection } = await api(`../api/tech/inspections/${id}`);
     current = inspection;
+    inspectionStep = 1;
     show("editor");
     $("#editor-type").textContent =
       `${inspection.inspection_type} · ${inspection.status}`;
@@ -462,6 +547,7 @@
     inspection.findings.forEach(addFinding);
     renderChecklist(inspection.checklist);
     renderMedia();
+    renderInspectionStep();
     $("#maintenance-help").hidden =
       inspection.inspection_type !== "Maintenance Documentation";
     const e = ["Draft", "Needs Changes"].includes(inspection.status);
@@ -500,11 +586,12 @@
     };
   }
   async function save() {
+    const savedStep = inspectionStep;
     return api(`../api/tech/inspections/${current.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(draft()),
-    }).then(() => openInspection(current.id));
+    }).then(() => openInspection(current.id)).then(() => { inspectionStep = savedStep; renderInspectionStep(); });
   }
   $("#login-form").onsubmit = async (e) => {
     e.preventDefault();
@@ -524,6 +611,10 @@
     location.reload();
   };
   $("#show-new").onclick = () => ($("#new-form").hidden = false);
+  $("#show-new-task").onclick = () => ($("#new-task-form").hidden = false);
+  $("#cancel-new-task").onclick = () => ($("#new-task-form").hidden = true);
+  $("#show-active").onclick = () => { $("#active-work").hidden = !$("#active-work").hidden; $("#completed-work").hidden = true; };
+  $("#show-completed").onclick = () => { $("#completed-work").hidden = !$("#completed-work").hidden; $("#active-work").hidden = true; };
   $("#show-add-property").onclick = () => {
     $("#new-form").hidden = true;
     $("#new-property-form").hidden = false;
@@ -554,6 +645,16 @@
         $("output", e.currentTarget).textContent = x.message;
       }
     };
+  $("#new-task-form").onsubmit = async (event) => {
+    event.preventDefault(); const form = event.currentTarget;
+    try {
+      const payload = Object.fromEntries(new FormData(form)); payload.operationId = crypto.randomUUID();
+      if (!payload.propertyId) payload.property = { name: payload.propertyName, streetAddress: payload.streetAddress, city: payload.city, state: payload.state, postalCode: payload.postalCode };
+      for (const key of ["propertyName", "streetAddress", "city", "state", "postalCode"]) delete payload[key];
+      const created = await api("../api/tech/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      form.reset(); await openTask(created.id);
+    } catch (error) { $("output", form).textContent = error.message; }
+  };
   $("#back-home").onclick = async () => {
     show("home");
     await loadHome();
@@ -562,6 +663,12 @@
     show("home");
     await loadHome();
   };
+  $("#back-tasks").onclick = async () => { await saveTask(); show("home"); await loadHome(); };
+  $("#task-form").addEventListener("input", () => { clearTimeout(taskSaveTimer); $("#task-status").textContent = "Saving…"; taskSaveTimer = setTimeout(() => saveTask(), 700); });
+  $("#task-next").onclick = async () => { await saveTask(); taskStep = Math.min(6, taskStep + 1); if (taskStep === 4 && currentJob.task.task_type !== "Quote / Estimate Request") taskStep = 5; renderTaskStep(); scrollTo(0, 0); };
+  $("#task-back").onclick = () => { taskStep = Math.max(1, taskStep - 1); if (taskStep === 4 && currentJob.task.task_type !== "Quote / Estimate Request") taskStep = 3; renderTaskStep(); scrollTo(0, 0); };
+  $("#task-media").onchange = async (event) => { const file = event.target.files[0]; if (!file) return; $("#task-status").textContent = "Uploading…"; try { await api(`../api/tech/jobs/${currentJob.job.id}/media?purpose=Task`, { method: "POST", headers: { "Content-Type": file.type, "X-File-Name": file.name }, body: file }); await openTask(currentJob.job.id); taskStep = 2; renderTaskStep(); } catch { $("#task-status").textContent = "Photo upload paused. We'll retry automatically."; } };
+  $("#submit-task").onclick = async () => { try { await saveTask(false); await api(`../api/tech/tasks/${currentJob.job.id}/submit`, { method: "POST" }); localStorage.removeItem(`taskcore-task-${currentJob.job.id}`); await openTask(currentJob.job.id); } catch (error) { $("#task-status").textContent = error.message; } };
   $("#job-ack").onclick = async () => {
     await api(`../api/tech/jobs/${currentJob.job.id}/acknowledge`, {
       method: "POST",
@@ -627,6 +734,8 @@
   $("#add-finding").onclick = () => addFinding();
   $("#save-draft").onclick = () =>
     save().catch((e) => ($("#editor-status").textContent = e.message));
+  $("#inspection-step-next").onclick = async () => { try { if (inspectionStep > 1) await save(); inspectionStep = Math.min(7, inspectionStep + 1); renderInspectionStep(); scrollTo(0, 0); } catch (error) { $("#editor-status").textContent = error.message; } };
+  $("#inspection-step-back").onclick = () => { inspectionStep = Math.max(1, inspectionStep - 1); renderInspectionStep(); scrollTo(0, 0); };
   $("#walkthrough").onchange = (e) => upload(e.target.files[0], "walkthrough");
   $("#inspection-form").onsubmit = async (e) => {
     e.preventDefault();

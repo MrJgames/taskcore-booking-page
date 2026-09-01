@@ -523,6 +523,29 @@ export async function initializeDatabase(
     .addColumn("created_at", "varchar(30)", (c) => c.notNull())
     .execute();
   await db.schema
+    .createTable("technician_task_details")
+    .ifNotExists()
+    .addColumn("request_id", "varchar(36)", (c) =>
+      c.primaryKey().references("operations_service_requests.id"),
+    )
+    .addColumn("task_type", "varchar(40)", (c) => c.notNull())
+    .addColumn("findings", "text", (c) => c.notNull().defaultTo(""))
+    .addColumn("measurements_notes", "text", (c) => c.notNull().defaultTo(""))
+    .addColumn("recommended_repair", "text", (c) => c.notNull().defaultTo(""))
+    .addColumn("specialist_needed", "integer", (c) => c.notNull().defaultTo(0))
+    .addColumn("estimated_labor_hours", "real")
+    .addColumn("estimated_materials", "text", (c) => c.notNull().defaultTo(""))
+    .addColumn("estimated_material_cost_cents", "integer")
+    .addColumn("proposed_labor_cents", "integer")
+    .addColumn("proposed_total_cents", "integer")
+    .addColumn("customer_price_cents", "integer")
+    .addColumn("review_status", "varchar(40)", (c) => c.notNull().defaultTo("Draft"))
+    .addColumn("operation_id", "varchar(100)")
+    .addColumn("submitted_at", "varchar(30)")
+    .addColumn("created_at", "varchar(30)", (c) => c.notNull())
+    .addColumn("updated_at", "varchar(30)", (c) => c.notNull())
+    .execute();
+  await db.schema
     .createTable("operations_request_history")
     .ifNotExists()
     .addColumn("id", "varchar(36)", (c) => c.primaryKey())

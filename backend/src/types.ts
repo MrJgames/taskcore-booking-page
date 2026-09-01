@@ -328,6 +328,25 @@ export interface OperationsServiceRequestsTable {
   created_at: string;
   updated_at: string;
 }
+export interface TechnicianTaskDetailsTable {
+  request_id: string;
+  task_type: "Diagnose / Check Issue" | "Quote / Estimate Request" | "Approved Service Call";
+  findings: Generated<string>;
+  measurements_notes: Generated<string>;
+  recommended_repair: Generated<string>;
+  specialist_needed: Generated<number>;
+  estimated_labor_hours: number | null;
+  estimated_materials: Generated<string>;
+  estimated_material_cost_cents: number | null;
+  proposed_labor_cents: number | null;
+  proposed_total_cents: number | null;
+  customer_price_cents: number | null;
+  review_status: Generated<"Draft" | "Owner Review" | "More Information Requested" | "Approved" | "Declined">;
+  operation_id: string | null;
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 export interface OperationsRequestMediaTable {
   id: string;
   request_id: string;
@@ -494,6 +513,7 @@ export interface TaskCoreDatabase {
   technician_channels: TechnicianChannelsTable;
   vendor_channels: VendorChannelsTable;
   operations_service_requests: OperationsServiceRequestsTable;
+  technician_task_details: TechnicianTaskDetailsTable;
   operations_request_media: OperationsRequestMediaTable;
   operations_request_history: OperationsRequestHistoryTable;
   operations_comments: OperationsCommentsTable;

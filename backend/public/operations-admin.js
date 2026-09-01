@@ -18,6 +18,11 @@
     if (!r.ok) throw Error(j.error || "Request failed");
     return j;
   }
+  function taskReview(r) {
+    if (!r.task_type) return "";
+    const money = (value) => value == null ? "Not provided" : `$${(value / 100).toFixed(2)}`;
+    return `<details class="task-review-panel" ${r.task_review_status === "Owner Review" ? "open" : ""}><summary>Technician ${esc(r.task_type)} · ${esc(r.task_review_status)}</summary><p><strong>Findings:</strong> ${esc(r.task_findings)}<br><strong>Recommended repair:</strong> ${esc(r.task_recommended_repair)}<br><strong>Measurements:</strong> ${esc(r.task_measurements_notes || "None")}<br><strong>Specialist needed:</strong> ${r.task_specialist_needed ? "Yes" : "No"}</p><p><strong>Contractor proposed labor:</strong> ${money(r.task_proposed_labor_cents)}<br><strong>Estimated materials:</strong> ${esc(r.task_estimated_materials || "Not provided")} · ${money(r.task_material_cost_cents)}<br><strong>Contractor proposed total:</strong> ${money(r.task_proposed_total_cents)}</p>${r.task_review_status === "Owner Review" ? `<form class="task-review" data-task="${r.id}"><label>Owner note<textarea name="note"></textarea></label><label>TaskCore customer price<input name="customerPrice" type="number" min="0" step="0.01" value="${r.task_customer_price_cents == null ? "" : r.task_customer_price_cents / 100}"></label><div class="row"><button name="action" value="Approve Work">Approve work</button><button name="action" value="Request Changes">Request changes</button><button name="action" value="Request More Information">Request more information</button><button name="action" value="Decline">Decline</button></div><output></output></form>` : ""}</details>`;
+  }
   async function load() {
     const filters = new URLSearchParams(
       new FormData(document.querySelector("#dispatch-filters")),
@@ -38,10 +43,10 @@
       d.requests
         .map(
           (r) =>
-            `<article class="inspection-card"><span class="status-badge">${esc(r.status)}</span><h3>${esc(r.request_number)} · ${esc(r.title)}</h3><p>${esc(r.organization_name)} · ${esc(r.property_name)}<br>${esc(r.address)}</p><p>${esc(r.priority)} · ${esc(r.category)}</p><details><summary>Dispatch controls</summary><form data-request="${r.id}"><label>Status<select name="status">${["owner_review", "needs_information", "estimating", "awaiting_approval", "approved", "dispatching", "assigned", "scheduled", "in_progress", "awaiting_completion_review", "completed", "declined", "closed"].map((s) => `<option ${s === r.status ? "selected" : ""}>${s}</option>`).join("")}</select></label><label>Internal notes<textarea name="internalNotes">${esc(r.internal_notes)}</textarea></label><button>Save dispatch</button><output></output></form></details></article>`,
+            `<article class="inspection-card"><span class="status-badge">${esc(r.status)}</span><h3>${esc(r.request_number)} · ${esc(r.title)}</h3><p>${esc(r.organization_name)} · ${esc(r.property_name)}<br>${esc(r.address)}</p><p>${esc(r.priority)} · ${esc(r.category)}</p>${taskReview(r)}<details><summary>Dispatch controls</summary><form data-request="${r.id}"><label>Status<select name="status">${["owner_review", "needs_information", "estimating", "awaiting_approval", "approved", "dispatching", "assigned", "scheduled", "in_progress", "awaiting_completion_review", "completed", "declined", "closed"].map((s) => `<option ${s === r.status ? "selected" : ""}>${s}</option>`).join("")}</select></label><label>Internal notes<textarea name="internalNotes">${esc(r.internal_notes)}</textarea></label><button>Save dispatch</button><output></output></form></details></article>`,
         )
         .join("") || "<p>No managed requests.</p>";
-    root.querySelectorAll("form").forEach(
+    root.querySelectorAll("form[data-request]").forEach(
       (f) =>
         (f.onsubmit = async (e) => {
           e.preventDefault();
@@ -60,6 +65,12 @@
           }
         }),
     );
+    root.querySelectorAll(".task-review").forEach((form) => form.onsubmit = async (event) => {
+      event.preventDefault(); const action = event.submitter.value;
+      const customerPrice = form.elements.customerPrice.value === "" ? null : Number(form.elements.customerPrice.value);
+      try { await api(`../api/admin/operations/requests/${form.dataset.task}/technician-task-review`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, note: form.elements.note.value, customerPrice }) }); await load(); }
+      catch (error) { form.querySelector("output").textContent = error.message; }
+    });
   }
   async function loadSetup() {
     const setup = await api("../api/admin/operations/setup");

@@ -51,15 +51,22 @@
             <p class="eyebrow">Signed in</p>
             <h2 id="tech-name"></h2>
           </div>
-          <button id="show-new">New inspection</button>
+          <span id="home-status" class="status-pill">Ready</span>
         </div>
-        <section class="panel">
-          <p class="eyebrow">Assigned service jobs</p>
-          <h3>Field work</h3>
+        <nav class="home-actions" aria-label="Field actions">
+          <button id="show-new" class="home-action"><span>＋</span><strong>New inspection</strong><small>Document a property</small></button>
+          <button id="show-new-task" class="home-action"><span>＋</span><strong>New task / service call</strong><small>Diagnose, quote, or perform approved work</small></button>
+          <button id="show-active" class="home-action"><span>▶</span><strong>Continue current job</strong><small id="active-count">No active work</small></button>
+          <button id="show-completed" class="home-action"><span>✓</span><strong>Completed jobs</strong><small id="completed-count">No completed work</small></button>
+        </nav>
+        <section id="active-work" class="panel" hidden>
+          <p class="eyebrow">Current work</p>
+          <h3>Pick up where you stopped</h3>
           <div id="job-summary"></div>
           <div id="job-list" class="cards"></div>
+          <div id="inspection-list" class="cards"></div>
         </section>
-        <h3>Inspections</h3>
+        <section id="completed-work" class="panel" hidden><p class="eyebrow">History</p><h3>Completed jobs</h3><div id="completed-list" class="cards"></div></section>
         <form id="new-form" class="panel" hidden>
           <h3>Start an inspection</h3>
           <label>Property<select name="propertyId" required></select></label
@@ -137,7 +144,16 @@
           </div>
           <output></output>
         </form>
-        <div id="inspection-list" class="cards"></div>
+        <form id="new-task-form" class="panel" hidden>
+          <p class="eyebrow">New field task</p><h3>What are you here to do?</h3>
+          <label>Task type<select name="taskType"><option>Diagnose / Check Issue</option><option>Quote / Estimate Request</option><option>Approved Service Call</option></select></label>
+          <label>Property<select name="propertyId"></select></label>
+          <details><summary>Property not listed?</summary><p>Leave the property selector on “Add an address” and enter the location. TaskCore will assign it to the correct client.</p><label>Property name<input name="propertyName" maxlength="140" /></label><label>Street address<input name="streetAddress" maxlength="160" /></label><div class="address-grid"><label>City<input name="city" /></label><label>State<input name="state" maxlength="2" placeholder="CA" /></label><label>ZIP code<input name="postalCode" inputmode="numeric" /></label></div></details>
+          <label>Short title<input name="title" required maxlength="160" placeholder="Leaking kitchen faucet" /></label>
+          <label>What were you asked to check?<textarea name="description" required maxlength="5000"></textarea></label>
+          <label>Priority<select name="priority"><option>Routine</option><option>Soon</option><option>Urgent</option></select></label>
+          <div class="row"><button>Start task</button><button type="button" class="ghost" id="cancel-new-task">Cancel</button></div><output></output>
+        </form>
       </section>
       <section id="job-view" hidden>
         <button id="back-jobs" class="back">← Assigned jobs</button>
@@ -222,6 +238,20 @@
           <div id="job-history"></div>
         </section>
       </section>
+      <section id="task-view" hidden>
+        <button id="back-tasks" class="back">← Home</button>
+        <div class="editor-title"><p class="eyebrow" id="task-type"></p><h2 id="task-title"></h2><p id="task-location"></p></div>
+        <form id="task-form">
+          <div class="step-progress"><span id="task-step-label">Step 1 of 6</span><progress id="task-progress" max="6" value="1"></progress></div>
+          <section class="panel task-step" data-task-step="1"><h3>Findings</h3><label>What did you find?<textarea name="findings" required rows="6"></textarea></label><label>Recommended repair or next step<textarea name="recommendedRepair" rows="4"></textarea></label></section>
+          <section class="panel task-step" data-task-step="2" hidden><h3>Photos / videos</h3><p>Attach clear evidence of the condition.</p><label class="upload"><span>Take a photo or video</span><input id="task-media" type="file" accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/quicktime,video/webm" capture="environment" /></label><div id="task-media-list"></div></section>
+          <section class="panel task-step" data-task-step="3" hidden><h3>Measurements and notes</h3><label>Measurements or field notes<textarea name="measurementsNotes" rows="5"></textarea></label><label class="toggle"><input type="checkbox" name="specialistNeeded" /> Another trade or specialist may be needed</label></section>
+          <section class="panel task-step quote-step" data-task-step="4" hidden><h3>Estimate</h3><label>Estimated labor hours<input name="estimatedLaborHours" type="number" min="0" step="0.25" /></label><label>Estimated materials<textarea name="estimatedMaterials"></textarea></label><label>Estimated material cost<input name="estimatedMaterialCost" type="number" min="0" step="0.01" /></label><label>Proposed labor amount<input name="proposedLabor" type="number" min="0" step="0.01" /></label><label>Proposed total amount<input name="proposedTotal" type="number" min="0" step="0.01" /></label><p class="callout">Submitting this quote does not authorize work.</p></section>
+          <section class="panel task-step" data-task-step="5" hidden><h3>Review</h3><div id="task-review"></div></section>
+          <section class="panel task-step" data-task-step="6" hidden><h3>Ready to send?</h3><p>Your photos and notes will go to TaskCore for owner review.</p><button id="submit-task" type="button">Submit for TaskCore review</button></section>
+          <div class="sticky-actions"><output id="task-status">Saved</output><button type="button" class="ghost" id="task-back">Back</button><button type="button" id="task-next">Next</button></div>
+        </form>
+      </section>
       <section id="editor-view" hidden>
         <button id="back-home" class="back">← Inspections</button>
         <div class="editor-title">
@@ -265,6 +295,8 @@
           </section>
           <div class="sticky-actions">
             <output id="editor-status"></output
+            ><button type="button" class="ghost" id="inspection-step-back">Back</button
+            ><button type="button" id="inspection-step-next">Next</button
             ><button type="button" class="ghost" id="save-draft">
               Save draft</button
             ><button type="submit">Send to owner review</button>
