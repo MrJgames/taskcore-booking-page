@@ -35,6 +35,17 @@ afterEach(() => {
 });
 
 describe("inspection portal", () => {
+  it("serves normal session timers without public QA test controls", async () => {
+    const { app, db } = await portalApp();
+    try {
+      const script = await request(app).get("/tech/session.js?sessionTest=1").expect(200);
+      expect(script.text).not.toMatch(/TaskCoreSessionTest|sessionTest|accelerated/);
+      expect(script.text).toContain("INACTIVE_MS=45*60*1000,WARNING_MS=5*60*1000");
+      expect(script.text).toContain("function preserve()");
+      expect(script.text).toContain("function restore()");
+      expect(script.text).toContain("../api/tech/session/renew");
+    } finally { await db.destroy(); }
+  });
   for (const mode of ["owner", "technician"] as const) it(`rejects ${mode} cross-inspection finding/history writes atomically`, async () => {
     const { app, db, auth } = await portalApp();
     try {
