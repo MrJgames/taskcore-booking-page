@@ -13,6 +13,11 @@ it("allows one ingress hop and rejects broad proxy trust", () => {
   expect(loadConfig().trustProxy).toBe(1);
   vi.stubEnv("TRUST_PROXY", "false");
   expect(loadConfig().trustProxy).toBe(false);
+  vi.stubEnv("TRUST_PROXY", "render");
+  vi.stubEnv("RENDER", "false");
+  expect(() => loadConfig()).toThrow(/managed ingress/);
+  vi.stubEnv("RENDER", "true");
+  expect(loadConfig().trustProxy).toBe("render");
   for (const value of ["true", "2", "garbage"]) {
     vi.stubEnv("TRUST_PROXY", value);
     expect(() => loadConfig()).toThrow(/TRUST_PROXY must/);

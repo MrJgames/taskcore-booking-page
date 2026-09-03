@@ -49,7 +49,7 @@ No production resource names or secret values are implied by this checklist.
 | `S3_ACCESS_KEY_ID` | Secret bucket-scoped production access key ID |
 | `S3_SECRET_ACCESS_KEY` | Matching secret, only in the hosting secret store |
 | `S3_FORCE_PATH_STYLE` | `false`, as exercised by the verified preview |
-| `TRUST_PROXY` | `1` behind the verified single ingress hop; `false` only for direct access. Broad `true` and other values are rejected. Do not expose an alternate path that bypasses the ingress. Retest forwarded-header spoofing when network topology changes |
+| `TRUST_PROXY` | `render` on Render managed Cloudflare ingress; requires platform `RENDER=true`. Uses validated `CF-Connecting-IP`, discards incoming XFF, and trusts only one normalized hop. No direct origin bypass may be exposed. `1` is only for other verified proxies that overwrite XFF; `false` for direct local access. Retest spoofing after topology changes |
 | `RATE_LIMIT_WINDOW_MS` | Default `900000`; review for production traffic |
 | `RATE_LIMIT_MAX` | Default `5`; review alongside proxy configuration |
 | `BODY_LIMIT` | Default `32kb` for JSON requests |
@@ -73,7 +73,10 @@ manual report-link sharing are not evidence of successful email/SMS delivery.
 ## Outstanding approval gates
 
 1. Verify the approved production ingress topology and repeat proxy spoofing/rate-limit tests.
-   One-hop trust is covered by regression tests; do not blindly increase the hop count.
+   Hosted testing showed bare one-hop trust is bypassable via XFF on this Render ingress.
+   The explicit Render adapter normalizes the edge-supplied CF-Connecting-IP before
+   Express/rate limiting. Test forged CF and XFF headers against the hosted service;
+   do not enable this mode behind an untrusted or directly accessible origin.
 2. Re-run the audit at release time. Targeted lockfile updates resolve `qs` to 6.16.0,
    `postcss` to 8.5.26 and `nanoid` to 3.3.18 without framework upgrades.
 3. Deploy the cleanup to preview, verify upload/retrieval, log redaction and secure

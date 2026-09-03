@@ -23,7 +23,7 @@ const validRequest = {
 
 const openDatabases: Kysely<TaskCoreDatabase>[] = [];
 
-async function testApp(rateLimitMax = 20, trustProxy: false | 1 = false) {
+async function testApp(rateLimitMax = 20, trustProxy: false | 1 | "render" = false) {
   const memoryPostgres = newDb({ noAstCoverageCheck: true });
   const adapter = memoryPostgres.adapters.createPg();
   const config = loadConfig({
@@ -47,6 +47,17 @@ afterEach(async () => {
 });
 
 describe("POST /api/service-requests", () => {
+  it("uses the managed Render edge address instead of spoofable XFF chains", async () => {
+    const { app } = await testApp(1, "render");
+    await request(app).post("/api/service-requests").set("CF-Connecting-IP", "203.0.113.10").set("X-Forwarded-For", "198.51.100.1").send({}).expect(400);
+    await request(app).post("/api/service-requests").set("CF-Connecting-IP", "203.0.113.10").set("X-Forwarded-For", "198.51.100.99").send({}).expect(429);
+    await request(app).post("/api/service-requests").set("CF-Connecting-IP", "203.0.113.11").send({}).expect(400);
+    const invalid = await request(app).post("/api/service-requests").set("CF-Connecting-IP", "invalid").send({}).expect(400);
+    expect(invalid.body.error).toBe("Invalid ingress client address.");
+    const missing = await request(app).post("/api/service-requests").set("X-Forwarded-For", "198.51.100.1").send({}).expect(400);
+    expect(missing.body.error).toBe("Invalid ingress client address.");
+    await request(app).get("/health").expect(200);
+  });
   it("uses only the ingress-supplied rightmost client IP for rate limiting", async () => {
     const { app } = await testApp(1, 1);
     expect(app.get("trust proxy")).toBe(1);

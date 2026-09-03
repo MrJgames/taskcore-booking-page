@@ -12,7 +12,7 @@ export interface AppConfig {
   rateLimitWindowMs: number;
   rateLimitMax: number;
   bodyLimit: string;
-  trustProxy: false | 1;
+  trustProxy: false | 1 | "render";
   uploadDirectory: string;
   maxPhotoBytes: number;
   maxVideoBytes: number;
@@ -42,8 +42,11 @@ function positiveInteger(value: string | undefined, fallback: number): number {
 
 export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   const proxySetting = process.env.TRUST_PROXY?.trim() || "false";
-  if (overrides.trustProxy === undefined && !["false", "1"].includes(proxySetting)) {
-    throw new Error("TRUST_PROXY must be false (direct access) or 1 (one trusted ingress hop); broad trust is not supported.");
+  if (overrides.trustProxy === undefined && !["false", "1", "render"].includes(proxySetting)) {
+    throw new Error("TRUST_PROXY must be false, 1, or render; broad trust is not supported.");
+  }
+  if (overrides.trustProxy === undefined && proxySetting === "render" && process.env.RENDER !== "true") {
+    throw new Error("TRUST_PROXY=render requires Render's managed ingress.");
   }
   const databaseUrl = process.env.DATABASE_URL?.trim() || undefined;
   const config: AppConfig = {
@@ -60,7 +63,7 @@ export function loadConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     rateLimitWindowMs: positiveInteger(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
     rateLimitMax: positiveInteger(process.env.RATE_LIMIT_MAX, 5),
     bodyLimit: process.env.BODY_LIMIT || "32kb",
-    trustProxy: proxySetting === "1" ? 1 : false,
+    trustProxy: proxySetting === "render" ? "render" : proxySetting === "1" ? 1 : false,
     uploadDirectory: path.resolve(process.cwd(), process.env.UPLOAD_DIRECTORY || "./data/inspection-media"),
     maxPhotoBytes: positiveInteger(process.env.MAX_PHOTO_BYTES, 15 * 1024 * 1024),
     maxVideoBytes: positiveInteger(process.env.MAX_VIDEO_BYTES, 250 * 1024 * 1024),

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isIP } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import cors from "cors";
@@ -38,7 +39,22 @@ function publicRequest(row: Record<string, unknown>) {
 export function createApp(config: AppConfig, db: Kysely<TaskCoreDatabase>) {
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", config.trustProxy);
+  app.set("trust proxy", config.trustProxy === "render" ? 1 : config.trustProxy);
+  if (config.trustProxy === "render") {
+    app.use((request, response, next) => {
+      // Render's Cloudflare edge supplies this single client address. Never trust
+      // the incoming XFF chain, whose user-supplied suffix can survive ingress.
+      // This mode requires managed ingress only, with no direct origin access.
+      const clientIp = request.get("CF-Connecting-IP");
+      if (clientIp && isIP(clientIp)) {
+        request.headers["x-forwarded-for"] = clientIp;
+      } else if (clientIp || request.get("X-Forwarded-For")) {
+        response.status(400).json({ error: "Invalid ingress client address." });
+        return;
+      }
+      next();
+    });
+  }
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
