@@ -34,6 +34,25 @@ afterEach(() => {
 });
 
 describe("inspection portal", () => {
+  it("sets secure production cookies on login and renewal and rejects revoked sessions", async () => {
+    const { app, db, auth } = await portalApp({ nodeEnv: "production", trustProxy: 1 });
+    try {
+      const credentials = { email: "secure-qa@example.test", password: "temporary-pass-123" };
+      await request(app).post("/api/admin/technicians").set("Authorization", auth).send({ name: "Secure QA", ...credentials }).expect(201);
+      await request(app).get("/admin/").expect(401);
+      await request(app).get("/admin/").set("Authorization", auth).expect(200);
+      const login = await request(app).post("/api/tech/login").send(credentials).expect(200);
+      const cookies = login.headers["set-cookie"] as unknown as string[];
+      expect(cookies[0]).toMatch(/; Secure/);
+      expect(cookies[0]).toMatch(/; HttpOnly/);
+      expect(cookies[0]).toMatch(/; SameSite=Strict/);
+      const cookie = cookies[0]!.split(";")[0]!;
+      const renewed = await request(app).post("/api/tech/session/renew").set("Cookie", cookie).send({}).expect(200);
+      expect(renewed.headers["set-cookie"]?.[0]).toMatch(/; Secure/);
+      await request(app).post("/api/tech/logout").set("Cookie", cookie).expect(204);
+      await request(app).get("/api/tech/session").set("Cookie", cookie).expect(401);
+    } finally { await db.destroy(); }
+  });
   it("slides active technician sessions, records renewal, and enforces the absolute limit", async () => {
     const { app, db, auth } = await portalApp({ technicianIdleSessionMs: 10 * 60 * 1000, technicianAbsoluteSessionMs: 60 * 60 * 1000 });
     try {

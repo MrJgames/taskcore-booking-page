@@ -23,7 +23,7 @@ const validRequest = {
 
 const openDatabases: Kysely<TaskCoreDatabase>[] = [];
 
-async function testApp(rateLimitMax = 20) {
+async function testApp(rateLimitMax = 20, trustProxy: false | 1 = false) {
   const memoryPostgres = newDb({ noAstCoverageCheck: true });
   const adapter = memoryPostgres.adapters.createPg();
   const config = loadConfig({
@@ -33,7 +33,8 @@ async function testApp(rateLimitMax = 20) {
     adminPassword: "test-password-long-enough",
     corsOrigins: ["http://localhost:8000"],
     rateLimitWindowMs: 60_000,
-    rateLimitMax
+    rateLimitMax,
+    trustProxy
   });
   const db = new Kysely<TaskCoreDatabase>({ dialect: new PostgresDialect({ pool: new adapter.Pool() }) });
   openDatabases.push(db);
@@ -46,6 +47,14 @@ afterEach(async () => {
 });
 
 describe("POST /api/service-requests", () => {
+  it("uses only the ingress-supplied rightmost client IP for rate limiting", async () => {
+    const { app } = await testApp(1, 1);
+    expect(app.get("trust proxy")).toBe(1);
+    // Untrusted leftmost addresses cannot reset the actual client's limiter.
+    await request(app).post("/api/service-requests").set("X-Forwarded-For", "198.51.100.1, 203.0.113.10").send({}).expect(400);
+    await request(app).post("/api/service-requests").set("X-Forwarded-For", "198.51.100.99, 203.0.113.10").send({}).expect(429);
+    await request(app).post("/api/service-requests").set("X-Forwarded-For", "198.51.100.1, 203.0.113.11").send({}).expect(400);
+  });
   it("serves an unauthenticated database-aware health check", async () => {
     const { app } = await testApp();
     const response = await request(app).get("/health").expect(200);

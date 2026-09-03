@@ -7,8 +7,8 @@ This checklist is preparation, not deployment authorization. Do not apply the ro
 ## Confirmed scope
 
 - Preview R2 photo/video persistence was verified across redeployment of `f133084`.
-- Logging cleanup is tested locally; it requires a separate approved preview deployment
-  and hosted smoke test before production promotion.
+- Logging cleanup `64adba9` was deployed to preview and passed old/new image/video
+  upload/retrieval checks with PostgreSQL connected. Repeat hosted checks after each release.
 - Preview remains a QA environment, not a production-certified deployment.
 - No production infrastructure, environment variables or automatic-deploy settings
   were changed by this cleanup.
@@ -34,7 +34,7 @@ No production resource names or secret values are implied by this checklist.
 
 | Variable | Production requirement / explicit default |
 | --- | --- |
-| `NODE_ENV` | `production` (preview currently remains `development`) |
+| `NODE_ENV` | `production`; explicitly validate Secure session cookies after deployment |
 | `NODE_VERSION` | Compatible Node 22.x patch selected above; prior tested pin was `22.16.0` |
 | `PORT` | Render-assigned port; server binds `0.0.0.0` |
 | `DATABASE_URL` | Secret PostgreSQL URL for the approved production database; mandatory, no SQLite fallback |
@@ -49,7 +49,7 @@ No production resource names or secret values are implied by this checklist.
 | `S3_ACCESS_KEY_ID` | Secret bucket-scoped production access key ID |
 | `S3_SECRET_ACCESS_KEY` | Matching secret, only in the hosting secret store |
 | `S3_FORCE_PATH_STYLE` | `false`, as exercised by the verified preview |
-| `TRUST_PROXY` | Blocked pending scoped proxy trust configuration and spoofing/rate-limit tests; current code accepts only a boolean. Do not treat broad `true` as hardened or blindly use `false` behind Render |
+| `TRUST_PROXY` | `1` behind the verified single ingress hop; `false` only for direct access. Broad `true` and other values are rejected. Do not expose an alternate path that bypasses the ingress. Retest forwarded-header spoofing when network topology changes |
 | `RATE_LIMIT_WINDOW_MS` | Default `900000`; review for production traffic |
 | `RATE_LIMIT_MAX` | Default `5`; review alongside proxy configuration |
 | `BODY_LIMIT` | Default `32kb` for JSON requests |
@@ -72,9 +72,10 @@ manual report-link sharing are not evidence of successful email/SMS delivery.
 
 ## Outstanding approval gates
 
-1. Resolve/retest proxy trust and IP rate limiting (`ERR_ERL_PERMISSIVE_TRUST_PROXY`).
-2. Remediate or explicitly assess the runtime `qs` moderate audit finding; no dependency
-   upgrade was performed as part of logging cleanup.
+1. Verify the approved production ingress topology and repeat proxy spoofing/rate-limit tests.
+   One-hop trust is covered by regression tests; do not blindly increase the hop count.
+2. Re-run the audit at release time. Targeted lockfile updates resolve `qs` to 6.16.0,
+   `postcss` to 8.5.26 and `nanoid` to 3.3.18 without framework upgrades.
 3. Deploy the cleanup to preview, verify upload/retrieval, log redaction and secure
    sessions under production-mode configuration before promotion.
 4. Approve isolated production resources, domain/origins, credential rotation,
@@ -84,3 +85,28 @@ manual report-link sharing are not evidence of successful email/SMS delivery.
    before any real-customer launch. Never copy QA records into production.
 
 This is a focused media-readiness review, not a full application security audit.
+
+## Authentication, payments and production resource review
+
+- There is no `SESSION_SECRET` setting in this implementation. Session tokens use
+  `crypto.randomBytes(32)` and only their hashes are stored in PostgreSQL. A fabricated
+  session-secret variable would have no effect. Protect the database, use unique owner
+  credentials, revoke QA sessions, and verify HTTPS/Secure/HttpOnly/SameSite behavior.
+- The admin portal currently uses HTTP Basic authentication over HTTPS, not a signed
+  session cookie. Production approval must accept this model or separately authorize
+  stronger owner authentication/MFA and brute-force protection.
+- Intended production CORS origins must include `https://taskcorepros.com` and
+  `https://www.taskcorepros.com`; add only other explicitly approved portal origins.
+- No Square/Stripe checkout, payment webhook or payment-secret integration was found
+  in the operations backend. Quotes/estimates are not payment authorization. Keep any
+  payment UI/endpoints unexposed until an independently reviewed payment integration,
+  environment-specific credentials and verified webhooks are configured.
+- Production database, production R2 bucket/credentials, backup retention/restore,
+  alert recipients and production hostname have not been identified or verified by
+  this preview-only task. Preview resources do not satisfy these gates.
+- For rollback: retain the previously approved immutable app commit, verify schema
+  backward compatibility and database restore points, preserve R2 objects, and use a
+  reviewed manual deployment. Never reset a database as an application rollback.
+- Render service health/deploy alerts are separate from business notifications.
+  Approve operational recipients and test delivery; optional Twilio/Resend variables
+  are required if automated business SMS/email is promised.

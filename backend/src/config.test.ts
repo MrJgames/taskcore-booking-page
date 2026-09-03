@@ -8,6 +8,17 @@ const secureAdmin = {
 
 afterEach(() => vi.unstubAllEnvs());
 
+it("allows one ingress hop and rejects broad proxy trust", () => {
+  vi.stubEnv("TRUST_PROXY", "1");
+  expect(loadConfig().trustProxy).toBe(1);
+  vi.stubEnv("TRUST_PROXY", "false");
+  expect(loadConfig().trustProxy).toBe(false);
+  for (const value of ["true", "2", "garbage"]) {
+    vi.stubEnv("TRUST_PROXY", value);
+    expect(() => loadConfig()).toThrow(/TRUST_PROXY must/);
+  }
+});
+
 it("selects S3 from MEDIA_STORAGE_MODE without a local fallback", () => {
   vi.stubEnv("MEDIA_STORAGE_MODE", "s3");
   expect(loadConfig().mediaStorageMode).toBe("s3");
