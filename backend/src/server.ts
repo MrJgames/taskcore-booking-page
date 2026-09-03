@@ -1,9 +1,11 @@
 import { createApp } from "./app.js";
 import { assertProductionConfig, loadConfig } from "./config.js";
 import { createDatabase, initializeDatabase } from "./database.js";
+import { logMediaStorage } from "./media.js";
 
 const config = loadConfig();
 assertProductionConfig(config);
+logMediaStorage(config, "startup");
 const db = createDatabase(config);
 await initializeDatabase(db);
 
