@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { Kysely, PostgresDialect } from "kysely";
@@ -34,6 +35,90 @@ afterEach(() => {
 });
 
 describe("inspection portal", () => {
+  for (const mode of ["owner", "technician"] as const) it(`rejects ${mode} cross-inspection finding/history writes atomically`, async () => {
+    const { app, db, auth } = await portalApp();
+    try {
+      const contexts: Array<{ inspectionId: string; findingId: string; cookie: string }> = [];
+      for (const suffix of ["a", "b"]) {
+        const client = await request(app).post("/api/admin/clients").set("Authorization", auth).send({ companyName: `Client ${suffix}`, contactName: "QA", email: `${suffix}@example.test`, phone: "7605550199" }).expect(201);
+        const property = await request(app).post("/api/admin/properties").set("Authorization", auth).send({ clientId: client.body.id, name: `Property ${suffix}`, address: `100 ${suffix} Street, Indio, CA` }).expect(201);
+        const credentials = { email: `tech-${suffix}@example.test`, password: "temporary-pass-123" };
+        await request(app).post("/api/admin/technicians").set("Authorization", auth).send({ name: `Tech ${suffix}`, ...credentials }).expect(201);
+        const login = await request(app).post("/api/tech/login").send(credentials).expect(200);
+        const cookie = login.headers["set-cookie"]![0]!.split(";")[0]!;
+        const created = await request(app).post("/api/tech/inspections").set("Cookie", cookie).send({ propertyId: property.body.id, inspectionType: "Maintenance Documentation" }).expect(201);
+        const saved = await request(app).put(`/api/tech/inspections/${created.body.id}`).set("Cookie", cookie).send({ checklist: [], findings: [{ category: "Plumbing", title: "Original finding", details: "Original details", priority: "Routine" }] }).expect(200);
+        contexts.push({ inspectionId: created.body.id, findingId: saved.body.inspection.findings[0].id, cookie });
+      }
+      const [a, b] = contexts as [typeof contexts[number], typeof contexts[number]];
+      if (mode === "owner") await db.updateTable("inspections").set({ status: "Submitted" }).execute();
+      const snapshot = async () => ({
+        inspections: await db.selectFrom("inspections").selectAll().orderBy("id").execute(),
+        findings: await db.selectFrom("inspection_findings").selectAll().orderBy("id").execute(),
+        details: await db.selectFrom("maintenance_finding_details").selectAll().orderBy("finding_id").execute(),
+        history: await db.selectFrom("maintenance_finding_events").selectAll().orderBy("id").execute(),
+        decisions: await db.selectFrom("inspection_decision_events").selectAll().orderBy("id").execute()
+      });
+      const before = await snapshot();
+      const item = (id: string) => ({ id, category: "Plumbing", title: "Changed finding", details: "Changed details", priority: "Routine", requiresApproval: true, quoteDescription: "Repair", quoteAmount: 25 });
+      // Valid first item proves the entire batch is rejected before any write.
+      for (const badId of [b.findingId, randomUUID(), before.history[0]!.id, a.findingId]) {
+        const response = mode === "owner"
+          ? await request(app).patch(`/api/admin/inspections/${a.inspectionId}/review`).set("Authorization", auth).send({ status: "Ready", findings: [item(a.findingId), item(badId)] })
+          : await request(app).put(`/api/tech/inspections/${a.inspectionId}`).set("Cookie", a.cookie).send({ checklist: [], findings: [item(a.findingId), item(badId)] });
+        expect(response.status).toBe(400);
+        expect(response.body).toEqual({ error: "Invalid inspection finding reference." });
+        expect(await snapshot()).toEqual(before);
+      }
+      const missingInspection = mode === "owner"
+        ? await request(app).patch(`/api/admin/inspections/${randomUUID()}/review`).set("Authorization", auth).send({ status: "Ready", findings: [item(a.findingId)] })
+        : await request(app).put(`/api/tech/inspections/${b.inspectionId}`).set("Cookie", a.cookie).send({ checklist: [], findings: [item(b.findingId)] });
+      expect(missingInspection.status).toBe(409);
+      expect(await snapshot()).toEqual(before);
+      if (mode === "owner") {
+        const password = "role-test-password-123";
+        await request(app).post("/api/admin/operations/organizations").set("Authorization", auth).send({ name: "Role QA", contactName: "QA", email: "org@example.test", managerName: "QA Manager", managerEmail: "manager@example.test", managerPassword: password }).expect(201);
+        await request(app).post("/api/admin/operations/vendors").set("Authorization", auth).send({ businessName: "QA Vendor", contactName: "QA", email: "vendor@example.test", password }).expect(201);
+        const manager = await request(app).post("/api/manager/login").send({ email: "manager@example.test", password }).expect(200);
+        const contractor = await request(app).post("/api/contractor/login").send({ email: "vendor@example.test", password }).expect(200);
+        for (const cookie of [a.cookie, manager.headers["set-cookie"]![0]!.split(";")[0]!, contractor.headers["set-cookie"]![0]!.split(";")[0]!, ""]) {
+          const denied = await request(app).patch(`/api/admin/inspections/${a.inspectionId}/review`).set("Cookie", cookie).send({ status: "Ready", findings: [item(a.findingId)] }).expect(401);
+          expect(denied.body).toEqual({ error: "Administrator authentication is required." });
+          expect(await snapshot()).toEqual(before);
+        }
+        // History IDs are never accepted as writable resource targets.
+        await request(app).patch(`/api/admin/inspections/${a.inspectionId}/history/${before.history[0]!.id}`).set("Authorization", auth).send({ action: "tamper" }).expect(404);
+        expect(await snapshot()).toEqual(before);
+      }
+      if (mode === "technician") {
+        await request(app).post(`/api/tech/inspections/${a.inspectionId}/media?findingId=${b.findingId}`).set("Cookie", a.cookie).set("Content-Type", "image/png").send(Buffer.from("test")).expect(400);
+        expect(await db.selectFrom("inspection_media").selectAll().execute()).toHaveLength(0);
+        const linked = await request(app).put(`/api/tech/inspections/${a.inspectionId}`).set("Cookie", a.cookie).send({ checklist: [{ key: "qa", section: "QA", label: "QA", answer: "Pass", findingId: b.findingId }], findings: [item(a.findingId)] }).expect(400);
+        expect(linked.body.error).toBe("Invalid inspection finding reference.");
+        expect(await snapshot()).toEqual(before);
+      }
+      const valid = mode === "owner"
+        ? await request(app).patch(`/api/admin/inspections/${a.inspectionId}/review`).set("Authorization", auth).send({ status: "Ready", findings: [item(a.findingId)] })
+        : await request(app).put(`/api/tech/inspections/${a.inspectionId}`).set("Cookie", a.cookie).send({ checklist: [], findings: [item(a.findingId)] });
+      expect(valid.status).toBe(200);
+      expect(await db.selectFrom("maintenance_finding_events").selectAll().where("finding_id", "=", a.findingId).execute()).toHaveLength(2);
+      expect(await db.selectFrom("maintenance_finding_events").selectAll().where("finding_id", "=", b.findingId).execute()).toHaveLength(1);
+      expect((await db.selectFrom("inspection_findings").selectAll().where("id", "=", b.findingId).executeTakeFirstOrThrow()).title).toBe("Original finding");
+      if (mode === "owner") {
+        const published = await request(app).post(`/api/admin/inspections/${a.inspectionId}/publish`).set("Authorization", auth).expect(200);
+        const token = new URL(published.body.reportUrl).pathname.split("/").pop()!;
+        const priorDecision = await snapshot();
+        for (const wrong of [b.findingId, randomUUID(), before.history[0]!.id]) {
+          const rejected = await request(app).post(`/api/reports/${token}/findings/${wrong}/decision`).send({ decision: "Approved" }).expect(404);
+          expect(rejected.body).toEqual({ error: "Repair item not found." });
+          expect(await snapshot()).toEqual(priorDecision);
+        }
+        await request(app).post(`/api/reports/${token}/findings/${a.findingId}/decision`).send({ decision: "Approved" }).expect(200);
+        expect(await db.selectFrom("inspection_decision_events").selectAll().where("finding_id", "=", a.findingId).execute()).toHaveLength(1);
+        expect(await db.selectFrom("inspection_decision_events").selectAll().where("finding_id", "=", b.findingId).execute()).toHaveLength(0);
+      }
+    } finally { await db.destroy(); }
+  });
   it("sets secure production cookies on login and renewal and rejects revoked sessions", async () => {
     const { app, db, auth } = await portalApp({ nodeEnv: "production", trustProxy: 1 });
     try {

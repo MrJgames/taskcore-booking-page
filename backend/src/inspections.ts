@@ -34,6 +34,18 @@ function dollars(value: number | null): string {
   return value === null ? "Pending quote" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value / 100);
 }
 
+class InvalidFindingReference extends Error {}
+
+async function inspectionFindingIds(db: Kysely<TaskCoreDatabase>, inspectionId: string, findings: Array<{ id?: string }>, linkedIds: string[] = []) {
+  const rows = await db.selectFrom("inspection_findings").select("id").where("inspection_id", "=", inspectionId).execute();
+  const existing = new Set(rows.map((row) => row.id));
+  const supplied = findings.flatMap((finding) => finding.id ? [finding.id] : []);
+  if (new Set(supplied).size !== supplied.length || supplied.some((id) => !existing.has(id)) || linkedIds.some((id) => !supplied.includes(id))) {
+    throw new InvalidFindingReference();
+  }
+  return rows;
+}
+
 function normalizeAddress(value: string): string {
   return value.toLowerCase().replace(/\b(street)\b/g, "st").replace(/\b(road)\b/g, "rd").replace(/\b(avenue)\b/g, "ave").replace(/\b(boulevard)\b/g, "blvd").replace(/[^a-z0-9]/g, "");
 }
@@ -225,13 +237,18 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
         if (prior) return response.json({ inspection: await inspectionBundle(db, inspection.id), duplicate: true });
       }
       await db.transaction().execute(async (transaction) => {
+        const existing = await inspectionFindingIds(transaction, inspection.id, parsed.data.findings, parsed.data.checklist.flatMap((item) => item.findingId ? [item.findingId] : []));
         await transaction.updateTable("inspections").set({ checklist_json: JSON.stringify(parsed.data.checklist), summary: parsed.data.summary, updated_at: now, status: "Draft" }).where("id", "=", inspection.id).execute();
-        const existing = await transaction.selectFrom("inspection_findings").select("id").where("inspection_id", "=", inspection.id).execute();
         const retained: string[] = [];
         for (const finding of parsed.data.findings) {
           const id = finding.id || randomUUID(); retained.push(id);
           const record = { id, inspection_id: inspection.id, title: finding.title, details: finding.details, priority: finding.priority, quote_amount_cents: null, decided_at: null, created_at: now, updated_at: now };
-          await transaction.insertInto("inspection_findings").values(record).onConflict((conflict) => conflict.column("id").doUpdateSet({ title: finding.title, details: finding.details, priority: finding.priority, updated_at: now })).execute();
+          if (finding.id) {
+            const updated = await transaction.updateTable("inspection_findings").set({ title: finding.title, details: finding.details, priority: finding.priority, updated_at: now }).where("id", "=", id).where("inspection_id", "=", inspection.id).executeTakeFirstOrThrow();
+            if (Number(updated.numUpdatedRows) !== 1) throw new InvalidFindingReference();
+          } else {
+            await transaction.insertInto("inspection_findings").values(record).execute();
+          }
           await transaction.insertInto("maintenance_finding_details").values({ finding_id: id, category: finding.category, immediate_safety_actions: finding.immediateSafetyActions, recommended_next_steps: finding.recommendedNextSteps, materials_needed: finding.materialsNeeded, review_status: "Pending owner review" }).onConflict((conflict) => conflict.column("finding_id").doUpdateSet({ category: finding.category, immediate_safety_actions: finding.immediateSafetyActions, recommended_next_steps: finding.recommendedNextSteps, materials_needed: finding.materialsNeeded })).execute();
           await transaction.insertInto("maintenance_finding_events").values({ id: randomUUID(), finding_id: id, actor_type: "Technician", action: finding.id ? "Draft updated" : "Finding created", snapshot_json: JSON.stringify(finding), created_at: now }).execute();
         }
@@ -241,7 +258,10 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
         await transaction.insertInto("technician_activity_events").values({ id: randomUUID(), technician_id: request.technician!.id, inspection_id: inspection.id, event_type: "Draft autosaved", created_at: now }).execute();
       });
       response.json({ inspection: await inspectionBundle(db, inspection.id) });
-    } catch (error) { next(error); }
+    } catch (error) {
+      if (error instanceof InvalidFindingReference) return response.status(400).json({ error: "Invalid inspection finding reference." });
+      next(error);
+    }
   });
 
   app.post("/api/tech/inspections/:id/media", async (request: TechnicianRequest, response, next) => {
@@ -457,15 +477,20 @@ export function registerInspectionRoutes(app: express.Express, config: AppConfig
       if (!existing || !["Submitted", "Ready"].includes(existing.status)) return response.status(409).json({ error: "Only a submitted inspection can be reviewed." });
       const now = new Date().toISOString();
       await db.transaction().execute(async (transaction) => {
+        await inspectionFindingIds(transaction, inspectionId, parsed.data.findings);
         for (const finding of parsed.data.findings) {
-          await transaction.updateTable("inspection_findings").set({ title: finding.title, details: finding.details, priority: finding.priority, requires_approval: finding.requiresApproval ? 1 : 0, quote_description: finding.quoteDescription, quote_amount_cents: cents(finding.quoteAmount), updated_at: now }).where("id", "=", finding.id).where("inspection_id", "=", inspectionId).execute();
+          const updated = await transaction.updateTable("inspection_findings").set({ title: finding.title, details: finding.details, priority: finding.priority, requires_approval: finding.requiresApproval ? 1 : 0, quote_description: finding.quoteDescription, quote_amount_cents: cents(finding.quoteAmount), updated_at: now }).where("id", "=", finding.id).where("inspection_id", "=", inspectionId).executeTakeFirstOrThrow();
+          if (Number(updated.numUpdatedRows) !== 1) throw new InvalidFindingReference();
           await transaction.updateTable("maintenance_finding_details").set({ review_status: finding.quoteAmount === null ? "Owner reviewed" : "Priced" }).where("finding_id", "=", finding.id).execute();
           await transaction.insertInto("maintenance_finding_events").values({ id: randomUUID(), finding_id: finding.id, actor_type: "Owner", action: finding.quoteAmount === null ? "Owner reviewed" : "Pricing updated", snapshot_json: JSON.stringify(finding), created_at: now }).execute();
         }
         await transaction.updateTable("inspections").set({ review_note: parsed.data.reviewNote, status: parsed.data.status, reviewed_at: now, updated_at: now }).where("id", "=", inspectionId).execute();
       });
       response.json({ inspection: await inspectionBundle(db, inspectionId) });
-    } catch (error) { next(error); }
+    } catch (error) {
+      if (error instanceof InvalidFindingReference) return response.status(400).json({ error: "Invalid inspection finding reference." });
+      next(error);
+    }
   });
 
   app.post("/api/admin/inspections/:id/publish", async (request, response, next) => {
