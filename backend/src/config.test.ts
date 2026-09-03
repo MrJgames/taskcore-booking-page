@@ -1,10 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertProductionConfig, loadConfig } from "./config.js";
 
 const secureAdmin = {
   adminUsername: "jay",
   adminPassword: "test-only-not-a-secret-value"
 };
+
+afterEach(() => vi.unstubAllEnvs());
+
+it("selects S3 from MEDIA_STORAGE_MODE without a local fallback", () => {
+  vi.stubEnv("MEDIA_STORAGE_MODE", "s3");
+  expect(loadConfig().mediaStorageMode).toBe("s3");
+});
+
+it("rejects local media and missing remote credentials in production", () => {
+  const config = loadConfig({ ...secureAdmin, nodeEnv: "production", databaseUrl: "postgresql://internal-host/taskcore", publicBaseUrl: "https://example.invalid", mediaStorageMode: "local" });
+  expect(() => assertProductionConfig(config)).toThrow(/MEDIA_STORAGE_MODE=s3 is required/);
+  expect(() => assertProductionConfig({ ...config, mediaStorageMode: "s3", s3AccessKeyId: undefined, s3SecretAccessKey: undefined })).toThrow(/required for S3 media storage/);
+});
 
 describe("production database configuration", () => {
   it("accepts PostgreSQL in production", () => {

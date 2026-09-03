@@ -1,25 +1,29 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { Request, Response } from "express";
 import type { AppConfig } from "./config.js";
 
-// Deliberately whitelist diagnostic fields: never serialize config, requests, or SDK errors.
-export function logMediaStorage(config: AppConfig, event: string, storageKey?: string, details: Record<string, string | number | boolean | null> = {}): void {
-  let endpointHost = "AWS SDK default";
-  if (config.s3Endpoint) {
-    try { endpointHost = new URL(config.s3Endpoint).hostname; }
-    catch { endpointHost = "invalid endpoint"; }
-  }
-  console.info("TaskCore media", JSON.stringify({
-    event, mediaStorageMode: config.mediaStorageMode, nodeEnv: config.nodeEnv,
-    adapter: config.mediaStorageMode === "s3" ? "@aws-sdk/client-s3.S3Client" : "local filesystem branch",
-    endpointHost, bucket: config.s3Bucket ?? null, storageKey: storageKey ?? null,
-    fallback: "none", ...details
-  }));
+type MediaEvent = "startup" | "upload_completed" | "upload_failed" | "retrieval_failed" | "delete_failed" | "staging_cleanup_failed";
+
+// Fixed fields only. Correlate objects without recording keys, URLs, paths or SDK errors.
+export function logMediaStorage(config: AppConfig, event: MediaEvent, storageKey?: string, httpStatusCode?: number): void {
+  const record = JSON.stringify({ event, provider: config.mediaStorageMode,
+    ...(storageKey ? { objectRef: createHash("sha256").update(storageKey).digest("hex").slice(0, 16) } : {}),
+    ...(Number.isInteger(httpStatusCode) && httpStatusCode! >= 100 && httpStatusCode! <= 599 ? { httpStatusCode } : {}) });
+  if (event.endsWith("failed")) console.error("TaskCore media", record);
+  else console.info("TaskCore media", record);
+}
+
+function storageFailure(config: AppConfig, event: MediaEvent, storageKey: string, error: unknown): Error {
+  const status = (error as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata?.httpStatusCode;
+  logMediaStorage(config, event, storageKey, status);
+  // The global API error handler logs thrown errors: never forward raw SDK errors to it.
+  return new Error("MEDIA_STORAGE_FAILED");
 }
 
 const allowedTypes = new Map([
@@ -32,8 +36,6 @@ export function uploadExtension(mimeType: string): string | undefined {
 }
 
 export async function receiveUpload(request: Request, destination: string, maximumBytes: number): Promise<number> {
-  console.info("TaskCore media", JSON.stringify({ event: "local_write_invoked", fileId: path.basename(destination), route: request.route?.path ?? "unknown" }));
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
   let bytes = 0;
   const limiter = new Transform({
     transform(chunk, _encoding, callback) {
@@ -43,13 +45,16 @@ export async function receiveUpload(request: Request, destination: string, maxim
     }
   });
   try {
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
     await pipeline(request, limiter, fs.createWriteStream(destination, { flags: "wx" }));
     if (bytes === 0) throw new Error("UPLOAD_EMPTY");
-    console.info("TaskCore media", JSON.stringify({ event: "local_write_completed", fileId: path.basename(destination), bytes }));
     return bytes;
   } catch (error) {
-    await fs.promises.rm(destination, { force: true });
-    throw error;
+    try { await fs.promises.rm(destination, { force: true }); }
+    catch { console.error("TaskCore media", JSON.stringify({ event: "staging_cleanup_failed" })); }
+    if (error instanceof Error && ["UPLOAD_TOO_LARGE", "UPLOAD_EMPTY"].includes(error.message)) throw error;
+    console.error("TaskCore media", JSON.stringify({ event: "staging_write_failed" }));
+    throw new Error("MEDIA_STORAGE_FAILED");
   }
 }
 
@@ -68,32 +73,29 @@ function s3Client(config: AppConfig): S3Client {
 }
 
 export function stagedMediaPath(config: AppConfig, storageKey: string): string | undefined {
-  logMediaStorage(config, "upload_path_selected", storageKey, { localWritePurpose: config.mediaStorageMode === "s3" ? "temporary staging only" : "local media storage" });
   const root = config.mediaStorageMode === "s3" ? path.join(os.tmpdir(), "taskcore-inspection-uploads") : config.uploadDirectory;
   return safeMediaPath(root, storageKey);
 }
 
 export async function persistMedia(config: AppConfig, storageKey: string, stagedPath: string, mimeType: string): Promise<void> {
   if (config.mediaStorageMode === "local") {
-    logMediaStorage(config, "local_storage_completed", storageKey, { putObjectInvoked: false });
     return;
   }
   try {
-    logMediaStorage(config, "put_object_invoked", storageKey, { putObjectInvoked: true });
     await s3Client(config).send(new PutObjectCommand({ Bucket: config.s3Bucket!, Key: storageKey, Body: fs.createReadStream(stagedPath), ContentType: mimeType }));
-    logMediaStorage(config, "put_object_completed", storageKey, { success: true });
+    logMediaStorage(config, "upload_completed", storageKey);
   } catch (error) {
-    const status = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
-    logMediaStorage(config, "put_object_failed", storageKey, { success: false, httpStatusCode: typeof status === "number" ? status : null, errorPropagated: true });
-    throw error;
+    throw storageFailure(config, "upload_failed", storageKey, error);
   } finally {
-    await fs.promises.rm(stagedPath, { force: true });
+    try { await fs.promises.rm(stagedPath, { force: true }); }
+    catch (error) { throw storageFailure(config, "staging_cleanup_failed", storageKey, error); }
   }
 }
 
 export async function deleteMedia(config: AppConfig, storageKey: string): Promise<void> {
   if (config.mediaStorageMode === "s3") {
-    await s3Client(config).send(new DeleteObjectCommand({ Bucket: config.s3Bucket!, Key: storageKey }));
+    try { await s3Client(config).send(new DeleteObjectCommand({ Bucket: config.s3Bucket!, Key: storageKey })); }
+    catch (error) { throw storageFailure(config, "delete_failed", storageKey, error); }
     return;
   }
   const file = safeMediaPath(config.uploadDirectory, storageKey);
@@ -101,7 +103,6 @@ export async function deleteMedia(config: AppConfig, storageKey: string): Promis
 }
 
 export async function sendMedia(config: AppConfig, storageKey: string, mimeType: string, response: Response, range?: string): Promise<void> {
-  logMediaStorage(config, "retrieval_path_selected", storageKey);
   response.type(mimeType);
   response.set("Cache-Control", "private, no-store");
   if (config.mediaStorageMode === "local") {
@@ -110,8 +111,9 @@ export async function sendMedia(config: AppConfig, storageKey: string, mimeType:
     response.sendFile(file);
     return;
   }
-  const object = await s3Client(config).send(new GetObjectCommand({ Bucket: config.s3Bucket!, Key: storageKey, Range: range }));
-  if (!object.Body) throw new Error("MEDIA_NOT_FOUND");
+  const object = await s3Client(config).send(new GetObjectCommand({ Bucket: config.s3Bucket!, Key: storageKey, Range: range }))
+    .catch((error: unknown) => { throw storageFailure(config, "retrieval_failed", storageKey, error); });
+  if (!object.Body) throw storageFailure(config, "retrieval_failed", storageKey, null);
   response.set("Accept-Ranges", "bytes");
   if (object.ContentLength !== undefined) response.set("Content-Length", String(object.ContentLength));
   if (object.ContentRange) {
@@ -119,6 +121,6 @@ export async function sendMedia(config: AppConfig, storageKey: string, mimeType:
     response.set("Content-Range", object.ContentRange);
   }
   const stream = object.Body as NodeJS.ReadableStream;
-  stream.on("error", () => { if (!response.headersSent) response.status(404).end(); else response.destroy(); });
+  stream.on("error", () => { logMediaStorage(config, "retrieval_failed", storageKey); if (!response.headersSent) response.status(404).end(); else response.destroy(); });
   stream.pipe(response);
 }
