@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const phone = "+14428225367";
+  const phone = "+17602399897";
   const email = "service@taskcorepros.com";
   const menuToggle = document.getElementById("menu-toggle");
   const navPanel = document.getElementById("nav-panel");
