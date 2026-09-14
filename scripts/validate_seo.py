@@ -23,7 +23,11 @@ assert business['email'] == 'service@taskcorepros.com'
 assert 'address' not in business and 'streetAddress' not in blocks[0]
 assert '(760) 239-9897' in homepage and business['email'] in homepage
 cities = ['Palm Springs', 'Cathedral City', 'Rancho Mirage', 'Palm Desert', 'Indian Wells', 'La Quinta', 'Indio', 'Coachella']
-assert [a['name'] for a in business['areaServed'][1:]] == [c + ', California' for c in cities]
+expected_service_areas = [{'@type': 'City', 'name': c + ', California'} for c in cities]
+# Bermuda Dunes coverage is explicitly owner-confirmed; the visible list shows
+# primary communities, not every community served.
+expected_service_areas.append({'@type': 'Place', 'name': 'Bermuda Dunes, California'})
+assert business['areaServed'][1:] == expected_service_areas
 assert all(c in homepage.split('<body>')[1] for c in cities)
 assert len(services) == 5
 cards = re.findall(r'<article class="service-card[^\"]*">.*?<h3>(.*?)</h3><p>(.*?)</p></article>', homepage, re.S)

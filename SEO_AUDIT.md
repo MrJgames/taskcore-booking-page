@@ -8,7 +8,7 @@ normalization. Work is isolated on seo/taskcore-entity-clarity; not deployed.
 
 | File | Change and reason |
 | --- | --- |
-| index.html | Strengthen the existing business graph rather than duplicate it. Keep TaskCore, #business, #website, canonical, title, phone, email and actual logo. Add five Service entities using the visible card names/descriptions and the existing business as provider. Explicitly identify Coachella Valley and retain the eight displayed cities. Remove the undisplayed Indio postal address, Bermuda Dunes entry and property-inspections claim. Remove the metadata-only insured claim pending confirmation. Add explicit Twitter title/description/image/alt and OG locale/image alt. Body remains identical. |
+| index.html | Strengthen the existing business graph rather than duplicate it. Keep TaskCore, #business, #website, canonical, title, phone, email and actual logo. Add five Service entities using the visible card names/descriptions and the existing business as provider. Explicitly identify Coachella Valley and retain all nine confirmed service areas: Palm Springs, Cathedral City, Rancho Mirage, Palm Desert, Indian Wells, La Quinta, Indio, Coachella and Bermuda Dunes. Remove the undisplayed Indio postal address and property-inspections claim. Remove the metadata-only insured claim pending confirmation. Add explicit Twitter title/description/image/alt and OG locale/image alt. Body remains identical. |
 | manifest.json | Set full application name to TaskCore; preserve existing icons, launch URL and behavior. |
 | service-worker.js | Increment cache version so existing installations refresh the changed homepage and manifest. Fetch logic and assets unchanged. |
 | sitemap.xml | Update only homepage lastmod to the actual modification date; preserve public privacy and connect pages. |
@@ -20,6 +20,14 @@ alongside the visible TaskCore logo), strong local title, single homepage
 canonical, business and WebSite entities, correct phone/email, real brand assets,
 Open Graph basics, Twitter summary card, robots.txt and sitemap.xml. No CSS,
 form JavaScript, customer contact links, calendar booking flow or backend changed.
+
+Bermuda Dunes, California is explicitly confirmed by the owner as a service area
+and remains a Place in business.areaServed. The validator expects all nine named
+communities, in addition to the broader Coachella Valley entry. The visible list
+shows eight primary communities and welcomes surrounding areas; it is not an
+exhaustive coverage list. Service-area confirmation does not authorize publishing
+a physical address. The postal/street address remains omitted unless the owner
+explicitly confirms it should be public.
 
 ## Canonicals and crawlability
 
