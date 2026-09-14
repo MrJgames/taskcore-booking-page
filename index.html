@@ -25,6 +25,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-CrjJYzfiuwbu4JEpHNaxBJxKW6L7Yzk2skYbO/ujDNM=' https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; img-src 'self' data: https://*.google-analytics.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
   <meta name="theme-color" content="#080808">
+  <!-- Search Console URL-prefix verification: insert the owner-issued google-site-verification meta tag here. See SERVICE_PAGES.md. -->
   <meta name="description" content="TaskCore provides handyman, property maintenance, installation, Wi-Fi, TV, smart-home, and home technology services across the Coachella Valley.">
   <meta name="robots" content="index, follow">
   <meta name="application-name" content="TaskCore">
@@ -114,7 +115,7 @@
         "@id": "https://taskcorepros.com/#service-1",
         "name": "Repairs & Maintenance",
         "description": "Common household repairs, adjustments, replacements, and upkeep.",
-        "url": "https://taskcorepros.com/#services",
+        "url": "https://taskcorepros.com/services/repairs-maintenance/",
         "provider": {
           "@id": "https://taskcorepros.com/#business"
         },
@@ -125,7 +126,7 @@
         "@id": "https://taskcorepros.com/#service-2",
         "name": "Installations & Assembly",
         "description": "Fixtures, hardware, household installations, mounting, assembly, and setup.",
-        "url": "https://taskcorepros.com/#services",
+        "url": "https://taskcorepros.com/services/installations-assembly/",
         "provider": {
           "@id": "https://taskcorepros.com/#business"
         },
@@ -136,7 +137,7 @@
         "@id": "https://taskcorepros.com/#service-3",
         "name": "Wi-Fi & Connectivity",
         "description": "Wi-Fi troubleshooting, coverage issues, routers, connected devices, and network setup.",
-        "url": "https://taskcorepros.com/#services",
+        "url": "https://taskcorepros.com/services/wifi-connectivity/",
         "provider": {
           "@id": "https://taskcorepros.com/#business"
         },
@@ -147,7 +148,7 @@
         "@id": "https://taskcorepros.com/#service-4",
         "name": "TV & Entertainment",
         "description": "TV setup, mounting support, streaming devices, soundbars, and connection troubleshooting.",
-        "url": "https://taskcorepros.com/#services",
+        "url": "https://taskcorepros.com/services/tv-entertainment/",
         "provider": {
           "@id": "https://taskcorepros.com/#business"
         },
@@ -158,7 +159,7 @@
         "@id": "https://taskcorepros.com/#service-5",
         "name": "Smart Home & Home Technology",
         "description": "Smart devices, cameras, doorbells, thermostats, connected-home troubleshooting, and setup.",
-        "url": "https://taskcorepros.com/#services",
+        "url": "https://taskcorepros.com/services/smart-home-technology/",
         "provider": {
           "@id": "https://taskcorepros.com/#business"
         },
@@ -174,6 +175,7 @@
   <link rel="icon" href="assets/icons/taskcore-favicon-48.png?v=20260818-1" type="image/png" sizes="48x48">
   <link rel="apple-touch-icon" href="assets/icons/taskcore-apple-touch-icon.png?v=20260818-1" sizes="180x180">
   <link rel="stylesheet" href="styles.css?v=20260821-4">
+  <link rel="stylesheet" href="/services/services.css?v=20260914-1">
   <script src="public-stats.js?v=20260816-1" defer></script>
   <script src="consent.js?v=20260821-2" defer></script>
   <script src="script.js?v=20260911-1" defer></script>
@@ -212,11 +214,11 @@
       <div class="shell">
         <header class="section-heading"><div><p class="eyebrow">WHAT WE DO</p><h2 id="services-title">Practical help.<br><span>Done right.</span></h2></div><p>One local contact for everyday repairs, installations, and home technology problems.</p></header>
         <div class="services-grid">
-          <article class="service-card service-card-featured"><span class="service-number">01</span><div class="service-glyph" aria-hidden="true">R</div><h3>Repairs &amp; Maintenance</h3><p>Common household repairs, adjustments, replacements, and upkeep.</p></article>
-          <article class="service-card"><span class="service-number">02</span><div class="service-glyph" aria-hidden="true">I</div><h3>Installations &amp; Assembly</h3><p>Fixtures, hardware, household installations, mounting, assembly, and setup.</p></article>
-          <article class="service-card"><span class="service-number">03</span><div class="service-glyph" aria-hidden="true">Wi</div><h3>Wi-Fi &amp; Connectivity</h3><p>Wi-Fi troubleshooting, coverage issues, routers, connected devices, and network setup.</p></article>
-          <article class="service-card"><span class="service-number">04</span><div class="service-glyph" aria-hidden="true">TV</div><h3>TV &amp; Entertainment</h3><p>TV setup, mounting support, streaming devices, soundbars, and connection troubleshooting.</p></article>
-          <article class="service-card"><span class="service-number">05</span><div class="service-glyph" aria-hidden="true">S</div><h3>Smart Home &amp; Home Technology</h3><p>Smart devices, cameras, doorbells, thermostats, connected-home troubleshooting, and setup.</p></article>
+          <article class="service-card service-card-featured"><span class="service-number">01</span><div class="service-glyph" aria-hidden="true">R</div><h3><a class="service-card-link" href="/services/repairs-maintenance/">Repairs &amp; Maintenance</a></h3><p>Common household repairs, adjustments, replacements, and upkeep.</p></article>
+          <article class="service-card"><span class="service-number">02</span><div class="service-glyph" aria-hidden="true">I</div><h3><a class="service-card-link" href="/services/installations-assembly/">Installations &amp; Assembly</a></h3><p>Fixtures, hardware, household installations, mounting, assembly, and setup.</p></article>
+          <article class="service-card"><span class="service-number">03</span><div class="service-glyph" aria-hidden="true">Wi</div><h3><a class="service-card-link" href="/services/wifi-connectivity/">Wi-Fi &amp; Connectivity</a></h3><p>Wi-Fi troubleshooting, coverage issues, routers, connected devices, and network setup.</p></article>
+          <article class="service-card"><span class="service-number">04</span><div class="service-glyph" aria-hidden="true">TV</div><h3><a class="service-card-link" href="/services/tv-entertainment/">TV &amp; Entertainment</a></h3><p>TV setup, mounting support, streaming devices, soundbars, and connection troubleshooting.</p></article>
+          <article class="service-card"><span class="service-number">05</span><div class="service-glyph" aria-hidden="true">S</div><h3><a class="service-card-link" href="/services/smart-home-technology/">Smart Home &amp; Home Technology</a></h3><p>Smart devices, cameras, doorbells, thermostats, connected-home troubleshooting, and setup.</p></article>
         </div>
       </div>
     </section>
@@ -232,7 +234,7 @@
       </div>
     </section>
     <section class="section area-section" id="area" aria-labelledby="area-title">
-      <div class="shell area-panel"><div class="area-copy"><p class="eyebrow">SERVICE AREA</p><h2 id="area-title">COACHELLA VALLEY<br><span>&amp; SURROUNDING AREAS</span></h2><p>From Palm Springs to the Salton Sea, TaskCore provides home repair and home technology service throughout the valley and surrounding desert communities.</p></div><figure class="valley-map"><img src="assets/coachella-valley-map.svg?v=20260817-2" alt="Dimensional illustrated map of TaskCore service communities from Palm Springs through the Coachella Valley to the Salton Sea"><ul class="map-markets" aria-label="Primary Coachella Valley service markets"><li>Palm Springs</li><li>Cathedral City</li><li>Rancho Mirage</li><li>Palm Desert</li><li>Indian Wells</li><li>La Quinta</li><li>Indio</li><li>Coachella</li></ul><figcaption>Primary communities shown — surrounding desert areas welcome.</figcaption></figure></div>
+      <div class="shell area-panel"><div class="area-copy"><p class="eyebrow">SERVICE AREA</p><h2 id="area-title">COACHELLA VALLEY<br><span>&amp; SURROUNDING AREAS</span></h2><p>From Palm Springs to the Salton Sea, TaskCore provides home repair and home technology service throughout the valley and surrounding desert communities.</p></div><figure class="valley-map"><img src="assets/coachella-valley-map.svg?v=20260817-2" alt="Dimensional illustrated map of TaskCore service communities from Palm Springs through the Coachella Valley to the Salton Sea"><ul class="map-markets" aria-label="Primary Coachella Valley service markets"><li>Palm Springs</li><li>Cathedral City</li><li>Rancho Mirage</li><li>Palm Desert</li><li>Indian Wells</li><li>La Quinta</li><li>Indio</li><li>Coachella</li><li>Bermuda Dunes</li></ul><figcaption>Primary communities shown — surrounding desert areas welcome.</figcaption></figure></div>
     </section>
     <section class="homes-section" aria-labelledby="homes-title">
       <div class="shell homes-layout"><p class="eyebrow">TRUSTED LOCALLY</p><div class="homes-stat"><strong data-property-count>--</strong><div><h2 id="homes-title">HOMES CURRENTLY SUPPORTED</h2><p>Across the Coachella Valley</p></div></div><div class="homes-rule" aria-hidden="true"><span></span><i></i></div><p class="homes-note">Supporting property-management portfolios and private homeowners with dependable repairs, maintenance, troubleshooting, and home technology service.</p></div>

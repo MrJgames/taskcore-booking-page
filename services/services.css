@@ -1,0 +1,18 @@
+/* Preserve homepage card geometry while making the whole card a native link. */
+.service-card-link{color:inherit;text-decoration:none}
+.service-card-link::after{content:"";position:absolute;inset:0;z-index:2}
+.service-card::before,.service-card::after{pointer-events:none}
+.service-card:focus-within{outline:2px solid var(--gold2);outline-offset:3px}
+/* Keep all nine communities readable below the map on larger screens too. */
+@media(min-width:601px){.map-markets{display:flex;flex-wrap:wrap;gap:7px 22px;margin:18px 0;padding:16px 0 16px 18px;border-top:1px solid var(--line);color:var(--silver);font-size:12px}}
+/* Service details reuse the site's existing secondary-page palette and typography. */
+.service-main h1{font-size:clamp(2.4rem,6vw,4.8rem);line-height:1.08;overflow-wrap:break-word}
+.service-main .service-lead{font-size:1.25rem;color:var(--gold2);margin-top:26px}
+.service-main .service-actions{margin:26px 0 38px}
+.service-main .button-gold{color:#0b0a07}
+.service-main .button-silver{color:var(--white)}
+.service-main .breadcrumbs{margin-bottom:36px}
+.service-main .breadcrumbs ol{display:flex;flex-wrap:wrap;gap:8px 14px;list-style:none;padding:0;margin:0}
+.service-main .breadcrumbs li{font-size:13px;margin:0}
+.breadcrumbs li+li::before{content:"/";margin-right:14px;color:var(--gold)}
+@media(max-width:600px){.service-page .privacy-nav{gap:18px}.service-main .service-actions .button{width:100%}}

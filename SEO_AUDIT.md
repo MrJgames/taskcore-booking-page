@@ -1,5 +1,10 @@
 # TaskCore entity SEO audit — 2026-09-14
 
+This records the PR #2 baseline. For the subsequent five-service-page expansion,
+current public page inventory and Search Console insertion instructions, see
+[SERVICE_PAGES.md](SERVICE_PAGES.md). The original findings below are historical;
+the expansion also makes all nine communities visible, including Bermuda Dunes.
+
 Production repository: MrJgames/taskcore-booking-page. Baseline: main at
 e8db95c. The downloaded live homepage matched this revision after newline
 normalization. Work is isolated on seo/taskcore-entity-clarity; not deployed.
