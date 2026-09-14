@@ -25,7 +25,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-CrjJYzfiuwbu4JEpHNaxBJxKW6L7Yzk2skYbO/ujDNM=' https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; img-src 'self' data: https://*.google-analytics.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
   <meta name="theme-color" content="#080808">
-  <meta name="description" content="TaskCore provides insured handyman, property maintenance, installation, Wi-Fi, TV, smart-home, and home technology services across the Coachella Valley.">
+  <meta name="description" content="TaskCore provides handyman, property maintenance, installation, Wi-Fi, TV, smart-home, and home technology services across the Coachella Valley.">
   <meta name="robots" content="index, follow">
   <meta name="application-name" content="TaskCore">
   <meta name="geo.region" content="US-CA">
@@ -35,11 +35,17 @@
   <meta name="apple-mobile-web-app-title" content="TaskCore">
   <meta property="og:type" content="website">
   <meta property="og:title" content="TaskCore | Coachella Valley Handyman &amp; Home Technology">
-  <meta property="og:description" content="Insured handyman, property maintenance, installations, and home technology support across the Coachella Valley.">
+  <meta property="og:description" content="Handyman, property maintenance, installations, and home technology support across the Coachella Valley.">
   <meta property="og:url" content="https://taskcorepros.com/">
   <meta property="og:image" content="https://taskcorepros.com/assets/taskcore-logo.png">
   <meta property="og:site_name" content="TaskCore">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:image:alt" content="TaskCore — Handyman and Home Technology Services">
   <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="TaskCore | Coachella Valley Handyman &amp; Home Technology">
+  <meta name="twitter:description" content="Handyman, property maintenance, installations, and home technology support across the Coachella Valley.">
+  <meta name="twitter:image" content="https://taskcorepros.com/assets/taskcore-logo.png">
+  <meta name="twitter:image:alt" content="TaskCore — Handyman and Home Technology Services">
   <link rel="canonical" href="https://taskcorepros.com/">
   <title>TaskCore | Coachella Valley Handyman &amp; Home Technology</title>
   <script type="application/ld+json">
@@ -47,7 +53,10 @@
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": ["LocalBusiness", "HomeAndConstructionBusiness"],
+        "@type": [
+          "LocalBusiness",
+          "HomeAndConstructionBusiness"
+        ],
         "@id": "https://taskcorepros.com/#business",
         "name": "TaskCore",
         "alternateName": "TaskCore Handyman & Home Technology Services",
@@ -56,15 +65,9 @@
         "image": "https://taskcorepros.com/assets/taskcore-logo.png",
         "telephone": "+1-760-239-9897",
         "email": "service@taskcorepros.com",
-        "description": "Insured handyman, property maintenance, installation, troubleshooting, and home technology services throughout the Coachella Valley.",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "Indio",
-          "addressRegion": "CA",
-          "postalCode": "92201",
-          "addressCountry": "US"
-        },
+        "description": "Handyman, property maintenance, installation, troubleshooting, and home technology services throughout the Coachella Valley.",
         "areaServed": [
+          {"@type": "Place", "name": "Coachella Valley, California"},
           {"@type": "City", "name": "Palm Springs, California"},
           {"@type": "City", "name": "Cathedral City, California"},
           {"@type": "City", "name": "Rancho Mirage, California"},
@@ -83,7 +86,7 @@
           "@type": "ContactPoint",
           "telephone": "+1-760-239-9897",
           "contactType": "customer service",
-          "areaServed": "US-CA",
+          "areaServed": "Coachella Valley, California",
           "availableLanguage": "English"
         },
         "knowsAbout": [
@@ -92,8 +95,7 @@
           "Home installations",
           "Wi-Fi troubleshooting",
           "TV and entertainment setup",
-          "Smart home technology",
-          "Property inspections"
+          "Smart home technology"
         ]
       },
       {
@@ -102,8 +104,65 @@
         "url": "https://taskcorepros.com/",
         "name": "TaskCore",
         "alternateName": "TaskCore Handyman & Home Technology Services",
-        "publisher": {"@id": "https://taskcorepros.com/#business"},
+        "publisher": {
+          "@id": "https://taskcorepros.com/#business"
+        },
         "inLanguage": "en-US"
+      },
+      {
+        "@type": "Service",
+        "@id": "https://taskcorepros.com/#service-1",
+        "name": "Repairs & Maintenance",
+        "description": "Common household repairs, adjustments, replacements, and upkeep.",
+        "url": "https://taskcorepros.com/#services",
+        "provider": {
+          "@id": "https://taskcorepros.com/#business"
+        },
+        "areaServed": "Coachella Valley, California"
+      },
+      {
+        "@type": "Service",
+        "@id": "https://taskcorepros.com/#service-2",
+        "name": "Installations & Assembly",
+        "description": "Fixtures, hardware, household installations, mounting, assembly, and setup.",
+        "url": "https://taskcorepros.com/#services",
+        "provider": {
+          "@id": "https://taskcorepros.com/#business"
+        },
+        "areaServed": "Coachella Valley, California"
+      },
+      {
+        "@type": "Service",
+        "@id": "https://taskcorepros.com/#service-3",
+        "name": "Wi-Fi & Connectivity",
+        "description": "Wi-Fi troubleshooting, coverage issues, routers, connected devices, and network setup.",
+        "url": "https://taskcorepros.com/#services",
+        "provider": {
+          "@id": "https://taskcorepros.com/#business"
+        },
+        "areaServed": "Coachella Valley, California"
+      },
+      {
+        "@type": "Service",
+        "@id": "https://taskcorepros.com/#service-4",
+        "name": "TV & Entertainment",
+        "description": "TV setup, mounting support, streaming devices, soundbars, and connection troubleshooting.",
+        "url": "https://taskcorepros.com/#services",
+        "provider": {
+          "@id": "https://taskcorepros.com/#business"
+        },
+        "areaServed": "Coachella Valley, California"
+      },
+      {
+        "@type": "Service",
+        "@id": "https://taskcorepros.com/#service-5",
+        "name": "Smart Home & Home Technology",
+        "description": "Smart devices, cameras, doorbells, thermostats, connected-home troubleshooting, and setup.",
+        "url": "https://taskcorepros.com/#services",
+        "provider": {
+          "@id": "https://taskcorepros.com/#business"
+        },
+        "areaServed": "Coachella Valley, California"
       }
     ]
   }
