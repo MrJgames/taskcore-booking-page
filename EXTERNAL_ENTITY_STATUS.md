@@ -70,9 +70,17 @@ their specific TaskCore public listings are verified. Do not use taskcore.app.
 
 ## Remaining account and owner actions
 
-- Sign in to Bing Places and inspect/claim the existing listing before creating
-  anything new. Use the canonical information above and hide the private address.
-  The browser currently displays sign-in options; no listing changes completed.
+- Bing Places: Google profile import completed after owner sign-in. Dashboard
+  confirms verification is done, sync succeeded, and status is **Pending publish**
+  with a stated publishing ETA of **7–12 days**. TaskCore, the current phone,
+  HTTPS website, all nine service areas, and the confirmed Facebook/Instagram
+  links match. Added service@taskcorepros.com and verified it saved. The option
+  **No, hide this address in search results** is selected and street-address
+  fields are empty. No private street address was entered. Direct name/location
+  and phone searches had found no listing; the manual creation form was not
+  submitted because it required a street address. The completed Google import
+  supplied the service-area listing instead. No verified public Bing listing
+  URL is available yet; add it to sameAs after publication and inspection.
 - Sign in to Apple Business (the Business Connect entry point redirects there)
   and verify the business. Add a public Apple Maps URL only after a matching
   listing is confirmed. The browser currently requires Apple Account sign-in.
