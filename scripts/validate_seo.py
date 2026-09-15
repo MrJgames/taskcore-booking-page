@@ -37,7 +37,19 @@ assert all(s['provider']['@id'] == business['@id'] for s in services)
 assert not re.search(r'"(?:aggregateRating|review|price|award)"', blocks[0])
 assert len(re.findall(r'<h1\b', homepage)) == 1
 assert not re.search(r'itemscope|itemtype|vocab="https?://schema.org', homepage)
-assert all(f'href="{url}"' in homepage for url in business['sameAs'])
+# Profiles verified through official public pages and owner dashboards.
+# Evidence and any remaining profile corrections are in EXTERNAL_ENTITY_STATUS.md.
+# Schema-only links do not require adding new visible UI to the homepage.
+verified_profiles = {
+    'https://www.instagram.com/taskcorepros',
+    'https://www.facebook.com/61593100634969',
+    'https://www.google.com/maps/place/TaskCore/data=!4m2!3m1!1s0x0:0xe3044f6430e9427',
+    'https://www.yelp.com/biz/taskcore-bermuda-dunes',
+}
+assert set(business['sameAs']) == verified_profiles, 'Unexpected or missing verified profile'
+assert len(business['sameAs']) == len(verified_profiles), 'Duplicate profile URL'
+profile_evidence = (ROOT / 'EXTERNAL_ENTITY_STATUS.md').read_text(encoding='utf-8')
+assert all(url in profile_evidence for url in verified_profiles), 'Missing profile evidence'
 for key in ['og:title', 'og:description', 'og:url', 'og:image', 'og:site_name', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image']:
     assert len(re.findall(r'(?:name|property)="' + key + '"', homepage)) == 1, key
 assert '<title>TaskCore | Coachella Valley Handyman &amp; Home Technology</title>' in homepage
