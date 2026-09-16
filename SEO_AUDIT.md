@@ -58,15 +58,15 @@ as its profiles in the homepage footer, privacy page and connect page:
 - https://www.instagram.com/taskcorepros
 - https://www.facebook.com/61593100634969
 
-These are first-party repository/live-site confirmations. Direct social-network
-fetches were unavailable, so current account ownership and profile contents were
-not independently checked. Owner should confirm both in signed-in profile settings.
-No new profile URL was invented. No Google, Yelp, Bing, Apple or Nextdoor listing
-URL was found in the repository. Keep these TODOs in documentation, not as empty
-strings or fake URLs in JSON-LD:
+On September 14, 2026, the public Facebook and Instagram pages were inspected,
+and TaskCore's signed-in Google Business Profile confirmed both social links.
+The verified Google Maps and Yelp consumer profile URLs are now included in the
+existing business entity's sameAs array. No second business entity or visible
+layout change was introduced. See [EXTERNAL_ENTITY_STATUS.md](EXTERNAL_ENTITY_STATUS.md)
+for verification evidence, completed Search Console work, Yelp corrections, and
+remaining social-profile inconsistencies. Keep unresolved profile TODOs in
+documentation, not as empty strings or fake URLs in JSON-LD:
 
-- TODO Google Business Profile: record verified public listing URL.
-- TODO Yelp: record verified TaskCore listing URL.
 - TODO Bing Places: record verified public business listing URL.
 - TODO Apple Business Connect: record public Apple Maps place URL, not dashboard.
 - TODO Nextdoor: record verified business page URL if one exists.
