@@ -1,7 +1,8 @@
 # TaskCore service-page expansion
 
-Baseline: production main at 65b3815 (merged PR #2). This change is proposed on
-seo/taskcore-service-pages. Do not merge or deploy until the owner authorizes it;
+Historical baseline: production main at 65b3815 (merged PR #2). The original
+five-page expansion was merged as PR #3. For the subsequent seven-service
+expansion and its authorized deployment, see [SEARCH_EXPANSION.md](SEARCH_EXPANSION.md).
 GitHub Pages publishes automatically from main.
 
 ## New public pages

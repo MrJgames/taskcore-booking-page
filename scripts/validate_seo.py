@@ -30,7 +30,7 @@ expected_service_areas = [{'@type': 'City', 'name': c + ', California'} for c in
 expected_service_areas.append({'@type': 'Place', 'name': 'Bermuda Dunes, California'})
 assert business['areaServed'][1:] == expected_service_areas
 assert all(c in homepage.split('<body>')[1] for c in cities + ['Bermuda Dunes'])
-assert len(services) == 5
+assert len(services) == 7
 cards = re.findall(r'<article class="service-card[^\"]*">.*?<h3>(.*?)</h3><p>(.*?)</p></article>', homepage, re.S)
 assert [(s['name'], s['description']) for s in services] == [(unescape(re.sub('<[^>]+>', '', n)), unescape(d)) for n, d in cards]
 assert all(s['provider']['@id'] == business['@id'] for s in services)
@@ -64,9 +64,10 @@ robots = (ROOT / 'robots.txt').read_text()
 assert 'Sitemap: ' + ORIGIN + '/sitemap.xml' in robots
 assert not re.search(r'Disallow:\s*/\s*$', robots, re.M)
 locations = [e.text for e in ET.parse(ROOT / 'sitemap.xml').iter('{http://www.sitemaps.org/schemas/sitemap/0.9}loc')]
-slugs = ['repairs-maintenance', 'installations-assembly', 'wifi-connectivity', 'tv-entertainment', 'smart-home-technology']
+slugs = ['repairs-maintenance', 'installations-assembly', 'wifi-connectivity', 'tv-entertainment', 'smart-home-technology', 'property-maintenance', 'pool-controls-diagnostics']
 service_urls = [ORIGIN + '/services/' + slug + '/' for slug in slugs]
-assert locations == [ORIGIN + '/', ORIGIN + '/privacy.html', ORIGIN + '/connect/'] + service_urls
+hub_url = ORIGIN + '/service-areas/coachella-valley/'
+assert locations == [ORIGIN + '/', ORIGIN + '/privacy.html', ORIGIN + '/connect/'] + service_urls + [hub_url]
 assert len(locations) == len(set(locations))
 
 class Page(HTMLParser):
@@ -110,7 +111,7 @@ def source_file(url):
     return ROOT / (path.lstrip('/') + 'index.html' if path.endswith('/') else path.lstrip('/'))
 
 # Discover public HTML independently of the sitemap; never walk the backend.
-public_files = set(ROOT.glob('*.html')) | set((ROOT / 'connect').rglob('*.html')) | set((ROOT / 'services').rglob('*.html'))
+public_files = set(ROOT.glob('*.html')) | set((ROOT / 'connect').rglob('*.html')) | set((ROOT / 'services').rglob('*.html')) | set((ROOT / 'service-areas').rglob('*.html'))
 assert public_files == {source_file(url) for url in locations}, 'Public HTML and sitemap differ'
 parsed_pages = {url: Page(source_file(url).read_text(encoding='utf-8')) for url in locations}
 seen_titles, seen_descriptions = set(), set()
@@ -140,6 +141,27 @@ for url in locations:
     if url != ORIGIN + '/':
         assert all(n.get('@type') not in ('LocalBusiness', 'HomeAndConstructionBusiness', 'Organization') and n.get('@id') != business['@id'] for n in page_graph)
     assert len([n['@id'] for n in page_graph if '@id' in n]) == len(set(n['@id'] for n in page_graph if '@id' in n))
+    if url in service_urls or url == hub_url:
+        webpages = [n for n in page_graph if n['@type'] == 'WebPage']
+        assert len(webpages) == 1
+        assert webpages[0]['@id'] == url + '#webpage'
+        assert webpages[0]['url'] == url
+        assert webpages[0]['isPartOf'] == {'@id': website['@id']}
+        assert webpages[0]['breadcrumb'] == {'@id': url + '#breadcrumbs'}
+        assert webpages[0]['about'] == {'@id': services[service_urls.index(url)]['@id'] if url in service_urls else business['@id']}
+    if url == hub_url:
+        assert not parsed.duplicate_ids
+        assert 'aria-label="Breadcrumb"' in page
+        assert len([n for n in page_graph if n['@type'] == 'BreadcrumbList']) == 1
+        assert all('/services/' + slug + '/' in parsed.links for slug in slugs)
+        for city in cities + ['Bermuda Dunes']:
+            assert '<h2>' + city + '</h2>' in page
+            assert city.lower().replace(' ', '-') in parsed.ids
+        for key in ['og:title', 'og:description', 'og:url', 'og:image', 'og:site_name', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image']:
+            assert len(parsed.meta.get(key, [])) == 1 and parsed.meta[key][0], (url, key)
+        assert parsed.meta['og:url'] == [url]
+        assert parsed.meta['og:title'] == parsed.meta['twitter:title'] == parsed.titles
+        assert parsed.meta['og:description'] == parsed.meta['twitter:description'] == descriptions
     if url in service_urls:
         assert not parsed.duplicate_ids, (url, parsed.duplicate_ids)
         expected = services[service_urls.index(url)]
@@ -156,6 +178,7 @@ for url in locations:
         assert all(c in page.split('<body')[1] for c in cities + ['Bermuda Dunes'])
         assert urlsplit(url).path in parsed_pages[ORIGIN + '/'].links
         assert '/' in parsed.links and '/#request' in parsed.links
+        assert '/service-areas/coachella-valley/' in parsed.links
         assert any(urljoin(url, link) in service_urls and urljoin(url, link) != url for link in parsed.links)
         for key in ['og:title', 'og:description', 'og:url', 'og:image', 'og:site_name', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image']:
             assert len(parsed.meta.get(key, [])) == 1 and parsed.meta[key][0], (url, key)
@@ -185,4 +208,13 @@ for url in locations:
             continue
         target = ROOT / parsed.path.lstrip('/') if parsed.path.startswith('/') else file.parent / parsed.path
         assert target.exists(), f'Missing local asset: {src}'
-print('PASS: schema, service/visible-content agreement, identity assets, metadata, canonicals, robots, sitemap and public-page assets')
+assert '/service-areas/coachella-valley/' in parsed_pages[ORIGIN + '/'].links
+options = re.findall(r'<option(?:\s[^>]*)?>(.*?)</option>', homepage)
+assert all(escape_name in [unescape(o) for o in options] for escape_name in [s['name'] for s in services])
+pool = source_file(service_urls[-1]).read_text(encoding='utf-8')
+for phrase in ['Pentair', 'Jandy AquaLink', 'pool cleaning', 'chemical balancing', 'gas work', 'internal pump or heater repairs', 'licensed electrical work']:
+    assert phrase in pool, phrase
+worker = (ROOT / 'service-worker.js').read_text()
+assert 'taskcore-v23-20260921-search-expansion' in worker
+assert all('".' + urlsplit(url).path + '"' in worker for url in service_urls + [hub_url])
+print('PASS: all 11 public pages; seven service cards/options; schema, metadata, canonicals, links, scope exclusions, robots, sitemap and assets')
