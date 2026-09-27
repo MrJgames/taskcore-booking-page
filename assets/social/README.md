@@ -11,3 +11,11 @@ These files were downloaded unchanged from Meta's Brand Resource Center on Augus
 - `instagram-glyph-white.svg` — `Instagram_Glyph_White.svg` from the official Instagram Brand Asset Pack: https://www.meta.com/brand/resources/instagram/instagram-brand/
 
 The marks remain the property of Meta. Use them only to identify TaskCore's presence on the corresponding service and follow the current guidelines at the source pages above. Do not alter, recolor, distort, crop, rotate, animate, outline, or combine them with another logo.
+
+`nextdoor.svg` uses the Nextdoor n from Simple Icons 11.0.0, rendered in white on
+a Nextdoor green circle for legibility at 24px. Source:
+https://github.com/simple-icons/simple-icons/blob/11.0.0/icons/nextdoor.svg
+
+Nextdoor profile verified September 27, 2026: https://nextdoor.com/page/task-core
+shows Task Core, Handyman, (760) 239-9897 and service@taskcorepros.com.
+The owner supplied the share URL; tracking parameters were removed.

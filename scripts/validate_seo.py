@@ -215,6 +215,6 @@ pool = source_file(service_urls[-1]).read_text(encoding='utf-8')
 for phrase in ['Pentair', 'Jandy AquaLink', 'pool cleaning', 'chemical balancing', 'gas work', 'internal pump or heater repairs', 'licensed electrical work']:
     assert phrase in pool, phrase
 worker = (ROOT / 'service-worker.js').read_text()
-assert 'taskcore-v24-20260927-instagram-gradient' in worker
+assert 'taskcore-v25-20260927-social-cards' in worker
 assert all('".' + urlsplit(url).path + '"' in worker for url in service_urls + [hub_url])
 print('PASS: all 11 public pages; seven service cards/options; schema, metadata, canonicals, links, scope exclusions, robots, sitemap and assets')

@@ -17,3 +17,5 @@ footer{margin-top:27px;text-align:center}footer p{margin:0 0 10px;color:var(--mu
 @media(max-width:599px){.connect-card{padding-inline:20px}.brand-link{max-width:290px}.consent-banner{grid-template-columns:1fr}.consent-actions{grid-template-columns:1fr 1fr}}
 @media(max-width:340px){.connect-shell{padding-inline:10px}.connect-card{padding-inline:15px}.connect-links a{padding-inline:14px}.connect-links span{font-size:14px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+
+@media(min-width:600px){.connect-links .nextdoor-card{grid-column:2}}
