@@ -1,4 +1,9 @@
-# Official social brand assets
+# Social brand assets
+
+`instagram-gradient.svg` is a locally drawn, Instagram-style gradient camera icon
+for the QR contact page, added September 27, 2026 at the owner's request. It is not
+an official Meta download. It uses the existing 24px social-icon dimensions.
+The original official assets below are unchanged.
 
 These files were downloaded unchanged from Meta's Brand Resource Center on August 29, 2026:
 
